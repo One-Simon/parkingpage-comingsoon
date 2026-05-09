@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: parkingpage-comingsoon
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_FORM_ENDPOINT
+        sync: false
