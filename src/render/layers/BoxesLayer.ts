@@ -1,13 +1,26 @@
-import { Bodies, Body, Composite, Engine, Mouse, MouseConstraint } from 'matter-js';
+﻿import { Bodies, Body, Composite, Engine, Events, Mouse, MouseConstraint } from 'matter-js';
+import type { IEvent, IEventCollision, MouseConstraint as Manipulator } from 'matter-js';
 import { Container, Graphics } from 'pixi.js';
 import type { Application } from 'pixi.js';
+import { layoutSourcehiveInViewport } from '../blockLetters/sourcehiveLayout.ts';
 import { cssPixelsToPixiFactors } from '../coords.ts';
 
 const WALL_THICK = 28;
+const LETTER_LABEL = 'sourcehive-cell';
+const CELL_BASE_CSS = 12;
+const CELL_SHRINK = 0.8;
+const CELL_SIZE_CSS = CELL_BASE_CSS * CELL_SHRINK;
+const LAYOUT_FRAC_Y = 0.38;
+const WAKE_SPEED = 1.15;
 
-type BoxGfx = Readonly<{ body: Body; g: Graphics; wCss: number; hCss: number }>;
+type LetterRecord = Readonly<{
+  body: Body;
+  g: Graphics;
+  order: number;
+}>;
 
-/** Matter world operates in CSS pixel space aligned with Pixi backing buffer scaling. */
+type DragPayload = IEvent<Manipulator> & { body: Body | null };
+
 export class BoxesLayer {
   readonly root = new Container();
   readonly engine: Engine;
@@ -15,14 +28,15 @@ export class BoxesLayer {
   private mouse!: Mouse;
   private mouseConstraint!: MouseConstraint;
 
-  /** Non-static boxed bodies tracked for syncing */
-  private boxRecords: BoxGfx[] = [];
+  private letterRecords: LetterRecord[] = [];
   private walls: Body[] = [];
 
   private resizeHandler!: () => void;
+  private readonly onCollisionStart: (ev: IEventCollision<Engine>) => void;
+  private readonly onDragStart: (ev: IEvent<Manipulator>) => void;
 
-  /** Reference to Pixi application for coordinate translation. */
   private readonly app: Application;
+  private layoutFrozen = false;
 
   constructor(app: Application) {
     this.app = app;
@@ -30,8 +44,8 @@ export class BoxesLayer {
       gravity: { x: 0, y: 1 },
       enableSleeping: true,
     });
-    this.engine.positionIterations = 6;
-    this.engine.velocityIterations = 6;
+    this.engine.positionIterations = 8;
+    this.engine.velocityIterations = 8;
 
     this.mouse = Mouse.create(this.app.canvas);
     this.mouseConstraint = MouseConstraint.create(this.engine, {
@@ -41,6 +55,24 @@ export class BoxesLayer {
 
     Composite.add(this.engine.world, this.mouseConstraint);
     syncMouseDpi(this.mouse, this.app.canvas);
+
+    this.onDragStart = (ev: IEvent<Manipulator>) => {
+      const b = (ev as DragPayload).body;
+      if (!b || b.label !== LETTER_LABEL) return;
+      this.wakeLetter(b);
+    };
+
+    this.onCollisionStart = (ev: IEventCollision<Engine>) => {
+      for (const pair of ev.pairs) {
+        const a = pair.bodyA;
+        const b = pair.bodyB;
+        this.maybeWakeFromImpact(a, b);
+        this.maybeWakeFromImpact(b, a);
+      }
+    };
+
+    Events.on(this.mouseConstraint, 'startdrag', this.onDragStart);
+    Events.on(this.engine, 'collisionStart', this.onCollisionStart);
 
     this.resizeHandler = () => {
       this.relayout(readCssViewport());
@@ -55,16 +87,32 @@ export class BoxesLayer {
     });
   }
 
-  /** Advance physics (`deltaMs`) and sync sprites. */
+  private wakeLetter(b: Body): void {
+    if (!b.isStatic) return;
+    Body.setStatic(b, false);
+    Body.setVelocity(b, { x: b.velocity.x, y: b.velocity.y });
+    this.layoutFrozen = true;
+  }
+
+  private maybeWakeFromImpact(letter: Body, other: Body): void {
+    if (letter.label !== LETTER_LABEL || !letter.isStatic) return;
+    if (other.label === LETTER_LABEL && other.isStatic) return;
+    const speed = Math.hypot(other.velocity.x, other.velocity.y);
+    if (speed < WAKE_SPEED) return;
+    this.wakeLetter(letter);
+  }
+
   update(deltaMs: number) {
     Engine.update(this.engine, deltaMs);
     const { sx, sy } = cssPixelsToPixiFactors(this.app);
-    for (const r of this.boxRecords) {
-      const { body: b, g, wCss, hCss } = r;
+    const side = CELL_SIZE_CSS;
+    for (const r of this.letterRecords) {
+      const b = r.body;
+      const g = r.g;
       g.rotation = b.angle;
       g.position.set(b.position.x * sx, b.position.y * sy);
       g.clear();
-      g.rect(-wCss * 0.5 * sx, -hCss * 0.5 * sy, wCss * sx, hCss * sy);
+      g.rect(-side * 0.5 * sx, -side * 0.5 * sy, side * sx, side * sy);
       const fillAlpha = b.isSleeping ? 0.78 : 0.92;
       g.fill({ color: 0x4c5d9f, alpha: fillAlpha });
       g.stroke({ width: Math.max(1, sx), color: 0x1a2033, alpha: 0.7 });
@@ -74,11 +122,13 @@ export class BoxesLayer {
   dispose() {
     window.removeEventListener('resize', this.resizeHandler);
     window.removeEventListener('orientationchange', this.resizeHandler);
+    Events.off(this.mouseConstraint, 'startdrag', this.onDragStart);
+    Events.off(this.engine, 'collisionStart', this.onCollisionStart);
     Composite.remove(this.engine.world, this.mouseConstraint);
     Composite.clear(this.engine.world, false);
     Engine.clear(this.engine);
-    this.boxRecords.forEach((r) => r.g.destroy());
-    this.boxRecords = [];
+    this.letterRecords.forEach((r) => r.g.destroy());
+    this.letterRecords = [];
     this.walls = [];
     this.root.destroy({ children: true });
   }
@@ -132,43 +182,54 @@ export class BoxesLayer {
     this.walls.push(floor, ceil, left, right);
     Composite.add(this.engine.world, this.walls);
 
-    if (this.boxRecords.length === 0) {
-      this.spawnStarterBoxes(css);
+    if (this.letterRecords.length === 0) {
+      this.spawnLetterGrid(css);
+    } else if (!this.layoutFrozen) {
+      this.repositionStaticLetters(css);
     } else {
       this.constrainBodiesTo(css);
     }
   }
 
-  private spawnStarterBoxes(css: { cw: number; ch: number }) {
-    const rng = seeded(42);
-    const count = 12;
-    const baseY = Math.max(css.ch - WALL_THICK * 6, css.ch * 0.62);
-
-    for (let i = 0; i < count; i++) {
-      const w = 54 + rng() * 40;
-      const h = 48 + rng() * 36;
-      const x = rng() * css.cw * 0.76 + css.cw * 0.1;
-      const y = baseY - i * (h * 1.06);
-      const body = Bodies.rectangle(x, y, w, h, {
-        friction: 0.65 + rng() * 0.08,
-        restitution: 0.09 + rng() * 0.06,
-        density: 0.002 + rng() * 0.002,
+  private spawnLetterGrid(css: { cw: number; ch: number }) {
+    const layout = layoutSourcehiveInViewport(css.cw, css.ch, CELL_SIZE_CSS, LAYOUT_FRAC_Y);
+    let order = 0;
+    for (const c of layout.centersCss) {
+      const body = Bodies.rectangle(c.x, c.y, CELL_SIZE_CSS, CELL_SIZE_CSS, {
+        isStatic: true,
+        friction: 0.65,
+        restitution: 0.1,
+        density: 0.003,
+        label: LETTER_LABEL,
       });
       Composite.add(this.engine.world, body);
 
       const g = new Graphics();
       this.root.addChild(g);
-      this.boxRecords.push({ body, g, wCss: w, hCss: h });
+      this.letterRecords.push({ body, g, order });
+      order += 1;
     }
   }
 
-  /** Clamp bodies if resized smaller */
+  private repositionStaticLetters(css: { cw: number; ch: number }) {
+    const layout = layoutSourcehiveInViewport(css.cw, css.ch, CELL_SIZE_CSS, LAYOUT_FRAC_Y);
+    for (const r of this.letterRecords) {
+      if (!r.body.isStatic) continue;
+      const target = layout.centersCss[r.order];
+      if (!target) continue;
+      Body.setPosition(r.body, { x: target.x, y: target.y });
+      Body.setAngle(r.body, 0);
+      Body.setVelocity(r.body, { x: 0, y: 0 });
+      Body.setAngularVelocity(r.body, 0);
+    }
+  }
+
   private constrainBodiesTo(css: { cw: number; ch: number }) {
-    for (const r of this.boxRecords) {
+    for (const r of this.letterRecords) {
       Body.setVelocity(r.body, { x: r.body.velocity.x * 0.5, y: r.body.velocity.y * 0.5 });
       if (r.body.position.x > css.cw) {
         Body.setPosition(r.body, {
-          x: css.cw - r.wCss * 0.5 - WALL_THICK,
+          x: css.cw - CELL_SIZE_CSS * 0.5 - WALL_THICK,
           y: r.body.position.y,
         });
       }
@@ -196,14 +257,4 @@ function syncMouseDpi(mouse: Mouse, canvas: HTMLCanvasElement) {
 
 function clamp(v: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, v));
-}
-
-function seeded(seed: number) {
-  let state = seed;
-  return (): number => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    return ((state >>> 0) % 10000) / 10000;
-  };
 }

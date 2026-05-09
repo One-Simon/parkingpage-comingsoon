@@ -1,17 +1,14 @@
-export const messaging = Object.freeze({
-  headline: 'Research preview — coming soon',
+﻿export const messaging = Object.freeze({
+  headline: 'Something new is taking shape',
   lede:
-    'A controlled workspace for automated news discovery, grouping, and review so operators can see what the system found and how it was configured.',
+    'SourceHive helps you stay ahead of the news that matters — without drowning in feeds. Join the list and be first in when we open the doors.',
   bullets: Object.freeze([
-    'Web and news signals ingested with explicit configuration — no black-box “trust us” runs.',
-    'Stories grouped for review with traceable runs and resource context.',
-    'Governance-oriented operators adjust layers and providers with clear, technical surfaces.',
+    'A calmer way to scan what changed: fewer tabs, clearer story threads.',
+    'Built for people who read carefully — not for endless doom‑scrolling.',
+    'No spammy growth tricks here — just email when we are ready for you.',
   ]),
-  footnote:
-    'This preview describes the research side only. Accounts and deployments stay private until launch readiness.',
-  waitlistTitle: 'Waitlist',
-  waitlistDisabledHelper:
-    'Email capture activates when ops sets VITE_FORM_ENDPOINT (Formspree or Getform URL) on the hosting service and redeploys.',
-  waitlistEnabledHelper:
-    'We will email you when the workspace opens. There is no marketing automation wired here unless we add an ESP later.',
+  footnote: 'This page is a preview only. Your email is only used for launch updates.',
+  waitlistTitle: 'Get launch updates',
+  waitlistDisabledHelper: 'Email signup is not quite wired up on this preview yet.',
+  waitlistEnabledHelper: 'We will only email you about the launch. Unsubscribe any time.',
 });

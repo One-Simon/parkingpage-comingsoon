@@ -1,4 +1,4 @@
-import { messaging } from './copy/researchMessaging.ts';
+﻿import { messaging } from './copy/researchMessaging.ts';
 
 /** Insert marketing card DOM into `#ui-root` */
 export function mountOverlay(root: HTMLElement) {
@@ -7,7 +7,7 @@ export function mountOverlay(root: HTMLElement) {
   root.innerHTML = `
     <div class="scrim scrim-behind-cards" aria-hidden="true"></div>
     <section class="glass-card" aria-labelledby="hero-heading">
-      <span class="eyebrow">ParkingPage • ComingSoon</span>
+      <span class="eyebrow">SourceHive · early access</span>
       <h1 id="hero-heading" class="headline">${escapeHtml(messaging.headline)}</h1>
       <p class="lede">${escapeHtml(messaging.lede)}</p>
       <ul class="bullet-list">${messaging.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
@@ -21,15 +21,15 @@ export function mountOverlay(root: HTMLElement) {
             name="email"
             autocomplete="email"
             type="email"
-            placeholder="you@domain.com"
+            placeholder="you@email.com"
             required
           />
-          <button id="waitlist-submit" type="submit">Notify me</button>
+          <button id="waitlist-submit" type="submit">Join the list</button>
         </form>
         <p id="waitlist-helper" class="helper-text"></p>
         <p id="waitlist-status" role="status" aria-live="polite" class="status-text"></p>
       </div>
-      <footer class="legal-hint">Visual preview only · no authenticated access here</footer>
+      <footer class="legal-hint">Preview only — no accounts or logins here yet.</footer>
     </section>
     <div class="scrim scrim-edge" aria-hidden="true"></div>
   `.trim();
@@ -59,3 +59,4 @@ function bindFocusTrapShortcuts(formEl: Element | null) {
     false
   );
 }
+
