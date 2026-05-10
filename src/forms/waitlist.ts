@@ -27,7 +27,7 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
     throw new Error('waitlist.mount_failed');
   }
 
-  helper.textContent = hasEndpoint ? messaging.waitlistEnabledHelper : messaging.waitlistDisabledHelper;
+  helper.textContent = messaging.waitlistHelper;
   button.disabled = !hasEndpoint;
   button.setAttribute('aria-disabled', String(!hasEndpoint));
   status.textContent = '';
@@ -66,9 +66,6 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
         break;
     }
     form.setAttribute('data-waitlist-state', next);
-    if (hasEndpoint === false && next === 'disabled') {
-      helper.textContent = messaging.waitlistDisabledHelper;
-    }
   };
 
   if (!hasEndpoint) {

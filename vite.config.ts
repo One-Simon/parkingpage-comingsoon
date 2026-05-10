@@ -1,6 +1,7 @@
 ﻿import type { UserConfig } from 'vite';
 
 export default {
+  plugins: [],
   server: {
     host: true,
     port: 5173,
@@ -12,4 +13,3 @@ export default {
     strictPort: false,
   },
 } satisfies UserConfig;
-

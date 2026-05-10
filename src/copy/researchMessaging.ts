@@ -1,14 +1,16 @@
 ﻿export const messaging = Object.freeze({
-  headline: 'Something new is taking shape',
+  eyebrow: 'Early access',
+  brandName: 'SourceHive',
+  tagline: 'Research, organize, and analyze information—not just read and forget.',
   lede:
-    'SourceHive helps you stay ahead of the news that matters — without drowning in feeds. Join the list and be first in when we open the doors.',
+    'SourceHive is built for people who work with real material: news, documents, feeds, datasets, and notes. Gather what matters, structure it your way, and spot connections without living in a dozen tabs.',
   bullets: Object.freeze([
-    'A calmer way to scan what changed: fewer tabs, clearer story threads.',
-    'Built for people who read carefully — not for endless doom‑scrolling.',
-    'No spammy growth tricks here — just email when we are ready for you.',
+    'One place to pull in sources and threads—articles, alerts, files, and quantitative bits you need side by side.',
+    'Organize and revisit your research stack so context stays attached to ideas, not lost in history.',
+    'Analyze and compare across materials when you need signal, not another passive feed.',
   ]),
-  footnote: 'This page is a preview only. Your email is only used for launch updates.',
   waitlistTitle: 'Get launch updates',
-  waitlistDisabledHelper: 'Email signup is not quite wired up on this preview yet.',
-  waitlistEnabledHelper: 'We will only email you about the launch. Unsubscribe any time.',
+  /** Shown under the email field for both enabled and disabled waitlist. */
+  waitlistHelper:
+    'Your email is only used for launch updates. Unsubscribe any time.',
 });

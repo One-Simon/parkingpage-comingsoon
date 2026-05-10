@@ -132,12 +132,25 @@ body.prefer-reduced-motion .static-fallback,
   margin-bottom: 1rem;
 }
 
-.headline {
-  font-size: clamp(1.85rem, 3.6vw, 2.65rem);
-  line-height: 1.05;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  margin: 0 0 1rem;
+.brand-title {
+  font-size: clamp(2.35rem, 5vw, 3.35rem);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin: 0 0 0.65rem;
+  background: linear-gradient(100deg, rgba(236, 242, 255, 0.99), rgba(170, 198, 255, 0.92));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.tagline {
+  margin: 0 0 1.15rem;
+  font-size: clamp(1.05rem, 2.2vw, 1.2rem);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+  color: rgba(215, 228, 255, 0.92);
 }
 
 .lede {
@@ -163,13 +176,6 @@ body.prefer-reduced-motion .static-fallback,
 
 .bullet-list li::marker {
   color: rgba(150, 170, 255, 0.55);
-}
-
-.footnote {
-  margin: 0 0 1.5rem;
-  font-size: 0.92rem;
-  color: var(--muted);
-  line-height: 1.48;
 }
 
 .waitlist {
@@ -232,12 +238,6 @@ body.prefer-reduced-motion .static-fallback,
   margin: 0;
   font-size: 0.82rem;
   color: rgba(160, 255, 216, 0.78);
-}
-
-.legal-hint {
-  margin: 1.85rem 0 0;
-  font-size: 0.72rem;
-  color: rgba(190, 200, 220, 0.52);
 }
 
 .sr-only {
