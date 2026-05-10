@@ -1,7 +1,6 @@
-﻿import type { UserConfig } from 'vite';
+import type { UserConfig } from 'vite';
 
 export default {
-  plugins: [],
   server: {
     host: true,
     port: 5173,
