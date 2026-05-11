@@ -49,6 +49,19 @@ Either provider works with the built-in fetch submitter:
 
 If `VITE_FORM_ENDPOINT` is missing, the form stays disabled and shows neutral visitor copy (deployment wiring belongs in this README, not on the page).
 
+### Content Security Policy
+
+The production CSP is injected as a `<meta http-equiv>` tag at build time by a small Vite
+plugin in [`vite.config.ts`](vite.config.ts) (the `cspPlugin` factory, scoped to `apply: 'build'`).
+The dev server intentionally ships no CSP so Vite's HMR (`eval`-style module replacement and
+`ws://` socket) keeps working.
+
+The default `connect-src` is `'self' https:`, which lets you swap form hosts (Formspree, Getform,
+custom) without rebuilding the policy. To lock it to a single allow-listed origin, edit the
+`PROD_CSP` array in [`vite.config.ts`](vite.config.ts) and replace `https:` with the explicit
+endpoint origin (e.g. `https://formspree.io`); for a fully dynamic value, read
+`process.env.VITE_FORM_ENDPOINT` inside the plugin and derive the origin there.
+
 ## Reduced motion behaviour
 
 Clients advertising `prefers-reduced-motion: reduce` tear down Pixi+Matter listeners and expose a muted static gradient backdrop; copy + keyboard remain reachable.
