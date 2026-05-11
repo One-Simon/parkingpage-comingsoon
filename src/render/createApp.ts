@@ -1,4 +1,5 @@
 import { Application } from 'pixi.js';
+import { invalidateCachedCanvasRect } from './canvasRect.ts';
 
 export type PixiHost = HTMLElement;
 
@@ -15,6 +16,9 @@ export async function createPixiApp(host: PixiHost) {
 
   host.innerHTML = '';
   host.appendChild(app.canvas);
+  // First layout read after mount; avoids a 0×0 cache snapshot before the canvas is painted.
+  void app.canvas.getBoundingClientRect();
+  invalidateCachedCanvasRect(app);
 
   const destroy = () => {
     app.ticker.destroy();

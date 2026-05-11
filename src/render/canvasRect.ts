@@ -51,12 +51,29 @@ class CachedRect {
 
   read(): RectSnapshot {
     if (this.dirty) {
-      const r = this.app.canvas.getBoundingClientRect();
+      const canvas = this.app.canvas;
+      const r = canvas.getBoundingClientRect();
+      let w = r.width;
+      let h = r.height;
+
+      // Before the first paint (fast production bundles, tab backgrounding, etc.)
+      // `getBoundingClientRect()` can be 0×0 even though `resizeTo: window` already
+      // sized the backing store. Physics (`BoxesLayer.relayout`) treats tiny sizes as
+      // "not ready" and would skip spawning tiles forever without a real dimension.
+      if (w < 4 || h < 4) {
+        w = Math.max(w, canvas.clientWidth);
+        h = Math.max(h, canvas.clientHeight);
+      }
+      if ((w < 4 || h < 4) && typeof window !== 'undefined') {
+        w = Math.max(w, window.innerWidth);
+        h = Math.max(h, window.innerHeight);
+      }
+
       this.snapshot = {
         left: r.left,
         top: r.top,
-        width: Math.max(r.width, 1),
-        height: Math.max(r.height, 1),
+        width: Math.max(w, 1),
+        height: Math.max(h, 1),
       };
       this.dirty = false;
     }

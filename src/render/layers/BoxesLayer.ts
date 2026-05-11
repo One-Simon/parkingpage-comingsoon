@@ -13,6 +13,7 @@
 import type { IEvent, IEventCollision, MouseConstraint as Manipulator } from 'matter-js';
 import { Container, Graphics } from 'pixi.js';
 import type { Application } from 'pixi.js';
+import { invalidateCachedCanvasRect } from '../canvasRect.ts';
 import { cssPixelsToPixiFactors } from '../coords.ts';
 import { drawTiles } from '../mosaic/MosaicRenderer.ts';
 import { clientToCanvasCss, getPhysicsViewport } from '../physicsViewport.ts';
@@ -194,6 +195,8 @@ export class BoxesLayer {
   private readonly onWindowPointerMoveWhileDown: (ev: PointerEvent) => void;
 
   private lastValidViewport: { cw: number; ch: number } | null = null;
+  /** Retries when the first relayout sees sub-minimum css size (layout race on fast prod loads). */
+  private relayoutDimRetryCount = 0;
 
   /**
    * Mosaic cell currently grabbed by `MouseConstraint`, if any. Prefer over `mouseConstraint.body` alone:
@@ -1551,10 +1554,18 @@ export class BoxesLayer {
         cw = this.lastValidViewport.cw;
         ch = this.lastValidViewport.ch;
       } else {
+        if (this.relayoutDimRetryCount < 30) {
+          this.relayoutDimRetryCount++;
+          invalidateCachedCanvasRect(this.app);
+          requestAnimationFrame(() => {
+            void this.relayout(getPhysicsViewport(this.app));
+          });
+        }
         return;
       }
     } else {
       this.lastValidViewport = { cw, ch };
+      this.relayoutDimRetryCount = 0;
     }
 
     for (const w of this.walls) {
