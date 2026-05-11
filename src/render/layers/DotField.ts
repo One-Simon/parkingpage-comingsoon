@@ -82,9 +82,22 @@ type GlyphDatum = Phys & {
   sprite: Sprite;
 };
 
+/** 1×1 PNG used when `public/favicon.png` cannot be loaded (CDN path, worker fetch, etc.). */
+const FALLBACK_GLYPH_TEXTURE_SRC =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
 /** Load favicon texture once before constructing {@link DotField}. */
 export async function loadDotFieldFaviconTexture(): Promise<Texture> {
-  return Assets.load<Texture>('/favicon.png');
+  const href =
+    typeof window === 'undefined'
+      ? '/favicon.png'
+      : new URL('favicon.png', window.location.origin + import.meta.env.BASE_URL).href;
+  try {
+    return await Assets.load<Texture>(href);
+  } catch (err) {
+    console.warn('DotField: favicon load failed, using inline fallback texture', err);
+    return Assets.load<Texture>(FALLBACK_GLYPH_TEXTURE_SRC);
+  }
 }
 
 export class DotField {

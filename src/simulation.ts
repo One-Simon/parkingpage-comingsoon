@@ -1,3 +1,4 @@
+import { loadTextures } from 'pixi.js';
 import { createPixiApp } from './render/createApp.ts';
 import { BoxesLayer } from './render/layers/BoxesLayer.ts';
 import { DotField, loadDotFieldFaviconTexture } from './render/layers/DotField.ts';
@@ -10,13 +11,23 @@ export async function bootstrapSimulation(pixHost: HTMLElement): Promise<() => P
   const pointerBridge = new PointerBridge(app);
   pointerBridge.start();
 
-  const faviconTexture = await loadDotFieldFaviconTexture();
-  const dotField = new DotField(app.renderer.width, app.renderer.height, faviconTexture);
-  app.stage.sortableChildren = true;
-  dotField.container.zIndex = 0;
+  /**
+   * Pixi loads image textures via blob `Worker`s by default. Worker `fetch` of site-relative URLs
+   * can fail in some deployed CSP / origin combinations; main-thread loading is reliable here.
+   */
+  const texCfg = loadTextures.config;
+  if (texCfg) texCfg.preferWorkers = false;
 
+  app.stage.sortableChildren = true;
+
+  /** Mosaic does not depend on the dot-field favicon; construct it first so a texture load failure
+   *  cannot blank the whole experience (see loadDotFieldFaviconTexture). */
   const boxesLayer = new BoxesLayer(app);
   boxesLayer.root.zIndex = 1;
+
+  const faviconTexture = await loadDotFieldFaviconTexture();
+  const dotField = new DotField(app.renderer.width, app.renderer.height, faviconTexture);
+  dotField.container.zIndex = 0;
 
   app.stage.addChild(dotField.container);
   app.stage.addChild(boxesLayer.root);
