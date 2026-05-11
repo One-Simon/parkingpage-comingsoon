@@ -218,7 +218,7 @@ export class BoxesLayer {
    * Direct grab uses strict-hull `Vertices.contains` only � no separate fat-finger disc.
    */
   private pointerRepulsionRadiusPx(): number {
-    return Math.max(POINTER_REPULSE_RADIUS_CSS, this.cellSizeCss * 3.68);
+    return Math.max(POINTER_REPULSE_RADIUS_CSS, this.cellSizeCss * 2.3552);
   }
 
   /**

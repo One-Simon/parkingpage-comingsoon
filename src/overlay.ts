@@ -7,8 +7,18 @@ export function mountOverlay(root: HTMLElement) {
   root.innerHTML = `
     <div class="scrim scrim-behind-cards" aria-hidden="true"></div>
     <section class="glass-card" aria-labelledby="hero-heading">
-      <span class="eyebrow">${escapeHtml(messaging.eyebrow)}</span>
-      <h1 id="hero-heading" class="brand-title">${escapeHtml(messaging.brandName)}</h1>
+      <div class="glass-card-head">
+        <h1 id="hero-heading" class="brand-title">${escapeHtml(messaging.brandName)}</h1>
+        <img
+          class="glass-card-logo"
+          src="/favicon.png"
+          width="94"
+          height="94"
+          alt=""
+          decoding="async"
+          aria-hidden="true"
+        />
+      </div>
       <p class="tagline">${escapeHtml(messaging.tagline)}</p>
       <p class="lede">${escapeHtml(messaging.lede)}</p>
       <ul class="bullet-list">${messaging.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>

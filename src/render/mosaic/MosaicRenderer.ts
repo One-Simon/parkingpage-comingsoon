@@ -14,10 +14,10 @@ export interface RenderScale {
   sy: number;
 }
 
-const FILL_COLOR = 0x4c5d9f;
-const FILL_ALPHA = 0.92;
-const STROKE_COLOR = 0x1a2033;
-const STROKE_ALPHA = 0.7;
+const FILL_COLOR = 0xd4892d;
+const FILL_ALPHA = 0.94;
+const STROKE_COLOR = 0x2a1508;
+const STROKE_ALPHA = 0.78;
 
 /**
  * Redraw every tile's Graphics for the current frame. Body angle and position drive transform;

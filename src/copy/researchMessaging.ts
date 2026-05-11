@@ -1,13 +1,13 @@
 ﻿export const messaging = Object.freeze({
-  eyebrow: 'Early access',
   brandName: 'SourceHive',
-  tagline: 'Research, organize, and analyze information—not just read and forget.',
+  tagline:
+    "The world's chaos— organized & analyzed",
   lede:
-    'SourceHive is built for people who work with real material: news, documents, feeds, datasets, and notes. Gather what matters, structure it your way, and spot connections without living in a dozen tabs.',
+    'There is too much to follow?\nKeep up with it, so "I read that somewhere" becomes "it\'s right here." Information means nothing without order and cross reference. Catch the Links that everyone else misses.',
   bullets: Object.freeze([
-    'One place to pull in sources and threads—articles, alerts, files, and quantitative bits you need side by side.',
-    'Organize and revisit your research stack so context stays attached to ideas, not lost in history.',
-    'Analyze and compare across materials when you need signal, not another passive feed.',
+    'One Information Center for sources, updates, and obscure data ready to be linked right —not scattered and lost',
+    'Catch anything, from anywhere, anytime.',
+    'Harvest the Power of Frontier AI Models to fully Automate Information Harvesting, Cross Referencing, Analysis & Empower actionable Recommendation',
   ]),
   waitlistTitle: 'Get launch updates',
   /** Shown under the email field for both enabled and disabled waitlist. */

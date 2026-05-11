@@ -6,12 +6,14 @@
 
 :root {
   color-scheme: dark;
-  --bg-deep: #04060d;
-  --bg-accent: radial-gradient(circle at 20% -10%, rgba(101, 120, 255, 0.45), transparent 55%);
-  --glass: rgba(12, 16, 32, 0.62);
+  --bg-deep: #020203;
+  --bg-accent: radial-gradient(circle at 22% -8%, rgba(120, 108, 98, 0.045), transparent 55%);
   --glass-edge: rgba(255, 255, 255, 0.12);
-  --text: rgba(239, 244, 255, 0.96);
-  --muted: rgba(210, 220, 246, 0.68);
+  --text: #f6f7f9;
+  --text-secondary: rgba(245, 246, 250, 0.94);
+  --muted: rgba(198, 200, 210, 0.88);
+  --ink: #0c0d10;
+  --focus-ring: rgba(255, 210, 150, 0.92);
 }
 
 html,
@@ -29,7 +31,7 @@ body {
     Helvetica,
     sans-serif;
   color: var(--text);
-  background: var(--bg-deep);
+  background: var(--bg-accent), var(--bg-deep);
 }
 
 #pixi-root {
@@ -52,8 +54,8 @@ body {
   inset: 0;
   z-index: 1;
   background:
-    radial-gradient(circle at 30% -20%, rgba(89, 110, 255, 0.35), transparent 45%),
-    radial-gradient(circle at 82% 8%, rgba(46, 200, 200, 0.18), transparent 40%), var(--bg-deep);
+    radial-gradient(circle at 35% -12%, rgba(90, 86, 82, 0.08), transparent 50%),
+    radial-gradient(circle at 78% 10%, rgba(70, 66, 64, 0.05), transparent 44%), var(--bg-deep);
 }
 
 #ui-root {
@@ -82,22 +84,21 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  mix-blend-mode: screen;
 }
 
 .scrim-behind-cards {
   z-index: 2;
   background: linear-gradient(
     to bottom right,
-    rgba(11, 12, 32, 0.45),
-    rgba(6, 7, 20, 0.25) 52%,
+    rgba(10, 10, 14, 0.55),
+    rgba(6, 6, 8, 0.22) 55%,
     rgba(255, 255, 255, 0)
   );
 }
 
 .scrim-edge {
   z-index: 5;
-  background: radial-gradient(circle at 50% -10%, transparent 60%, rgba(0, 0, 0, 0.5));
+  background: radial-gradient(circle at 50% -12%, transparent 58%, rgba(0, 0, 0, 0.65));
 }
 
 .glass-card {
@@ -105,35 +106,58 @@ body {
   z-index: 3;
   width: min(560px, 100%);
   max-width: 44rem;
-  backdrop-filter: blur(20px) saturate(1.12);
-  background: linear-gradient(165deg, rgba(16, 20, 40, 0.72), rgba(12, 14, 28, 0.58));
+  backdrop-filter: blur(22px) saturate(1);
+  background: linear-gradient(
+    168deg,
+    rgba(26, 26, 31, 0.94),
+    rgba(14, 14, 17, 0.9)
+  );
   border: 1px solid var(--glass-edge);
   border-radius: 1.25rem;
-  padding: clamp(1.85rem, 3.2vw, 2.85rem);
+  padding: clamp(1.1rem, 2vw, 1.5rem) clamp(1.85rem, 3.2vw, 2.85rem) clamp(1.85rem, 3.2vw, 2.85rem);
   box-shadow:
-    0 22px 60px rgba(0, 0, 12, 0.58),
-    inset 0 1px rgba(255, 255, 255, 0.09);
+    0 24px 64px rgba(0, 0, 0, 0.75),
+    inset 0 1px rgba(255, 255, 255, 0.07);
 }
 
-.eyebrow {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: rgba(200, 210, 250, 0.78);
-  display: inline-flex;
+.glass-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.45rem;
-  margin-bottom: 1rem;
+  gap: clamp(0.55rem, 2vw, 0.85rem);
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.glass-card-logo {
+  display: block;
+  width: clamp(74px, 17.55vw, 101px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.glass-card-head .brand-title {
+  margin: 0;
+  min-width: 0;
+  text-align: left;
+  align-self: center;
+  font-size: clamp(2.35rem, 5.6vw, 3.45rem);
+  line-height: 1;
 }
 
 .brand-title {
   font-size: clamp(2.35rem, 5vw, 3.35rem);
   line-height: 1;
-  font-weight: 700;
+  font-weight: 750;
   letter-spacing: -0.04em;
   margin: 0 0 0.65rem;
-  background: linear-gradient(100deg, rgba(236, 242, 255, 0.99), rgba(170, 198, 255, 0.92));
+  background: linear-gradient(
+    102deg,
+    #ffffff 0%,
+    rgba(242, 242, 246, 0.98) 55%,
+    rgba(226, 224, 228, 0.95) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -142,24 +166,25 @@ body {
 .tagline {
   margin: 0 0 1.15rem;
   font-size: clamp(1.05rem, 2.2vw, 1.2rem);
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: -0.015em;
-  line-height: 1.4;
-  color: rgba(215, 228, 255, 0.92);
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 
 .lede {
   margin-top: 0;
   margin-bottom: 1.35rem;
-  color: rgba(232, 240, 255, 0.9);
-  line-height: 1.58;
+  color: rgba(236, 237, 242, 0.94);
+  line-height: 1.62;
   font-size: 1.05rem;
+  white-space: pre-line;
 }
 
 .bullet-list {
   margin: 0 0 1.65rem;
   padding-left: 1.15rem;
-  color: rgba(225, 234, 255, 0.9);
+  color: rgba(232, 234, 240, 0.95);
   list-style: disc;
 }
 
@@ -170,20 +195,21 @@ body {
 }
 
 .bullet-list li::marker {
-  color: rgba(150, 170, 255, 0.55);
+  color: rgba(216, 216, 222, 0.78);
 }
 
 .waitlist {
   margin-top: 0.35rem;
   padding-top: 1.35rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .subsection-title {
   margin: 0 0 0.8rem;
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .waitlist-form {
@@ -196,8 +222,8 @@ body {
 .waitlist-form input {
   flex: 1 1 180px;
   border-radius: 0.72rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(5, 7, 20, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 8, 10, 0.72);
   color: inherit;
   padding: 0.68rem 0.92rem;
   font-size: 0.94rem;
@@ -205,17 +231,29 @@ body {
 }
 
 .waitlist-form input:focus-visible {
-  border-color: rgba(140, 160, 255, 0.75);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-color: rgba(255, 220, 160, 0.5);
 }
 
 .waitlist-form button {
   cursor: pointer;
   border-radius: 0.72rem;
-  border: 1px solid rgba(146, 160, 255, 0.42);
-  background: linear-gradient(180deg, rgba(150, 168, 255, 0.3), rgba(120, 138, 255, 0.18));
-  color: var(--text);
+  border: 1px solid rgba(255, 164, 72, 0.55);
+  background: linear-gradient(180deg, #f4a63a, #d98216);
+  color: var(--ink);
   padding: 0.65rem 1.2rem;
-  font-weight: 600;
+  font-weight: 650;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.waitlist-form button:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.waitlist-form button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .waitlist-form button:disabled {
@@ -226,13 +264,13 @@ body {
 .helper-text {
   margin: 0 0 0.45rem;
   font-size: 0.78rem;
-  color: rgba(190, 200, 230, 0.65);
+  color: rgba(175, 178, 190, 0.88);
 }
 
 .status-text {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(160, 255, 216, 0.78);
+  color: rgba(120, 226, 178, 0.9);
 }
 
 .sr-only {
@@ -262,8 +300,8 @@ body.reduced-motion .static-fallback {
 body.reduced-motion .ui-stack .glass-card {
   box-shadow: none;
   backdrop-filter: none;
-  background: rgba(10, 12, 24, 0.78);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(18, 18, 22, 0.96);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 /* No-JS fallback: honor OS pref directly when JS hasn't toggled the class. */

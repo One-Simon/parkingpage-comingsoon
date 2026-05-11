@@ -11,7 +11,7 @@ import type { TileRecord } from './types.ts';
 
 // Tunables ----------------------------------------------------------------------------------------
 /** Minimum field radius in CSS px; orchestrator may widen with a per-cell-size multiplier. */
-export const POINTER_REPULSE_RADIUS_CSS = 108;
+export const POINTER_REPULSE_RADIUS_CSS = 69.12;
 /** Peak repulsion force (Matter units); scaled by falloff inside the disc. */
 export const POINTER_REPULSE_FORCE = 0.00112;
 /** Falling tiles still feel the field, but at this fraction of the bound-tile push. */

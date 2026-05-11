@@ -8,7 +8,7 @@ export async function createPixiApp(host: PixiHost) {
     resizeTo: typeof window !== 'undefined' ? window : host,
     autoDensity: true,
     preference: 'webgl',
-    backgroundColor: 0x090b14,
+    backgroundColor: 0x020203,
     antialias: true,
     resolution: typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
   });

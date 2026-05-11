@@ -1,6 +1,6 @@
 import { createPixiApp } from './render/createApp.ts';
 import { BoxesLayer } from './render/layers/BoxesLayer.ts';
-import { DotField } from './render/layers/DotField.ts';
+import { DotField, loadDotFieldFaviconTexture } from './render/layers/DotField.ts';
 import { PointerBridge } from './render/pointerBridge.ts';
 
 /** Boot Pixi + Matter + dot field; returns teardown function. */
@@ -10,7 +10,8 @@ export async function bootstrapSimulation(pixHost: HTMLElement): Promise<() => P
   const pointerBridge = new PointerBridge(app);
   pointerBridge.start();
 
-  const dotField = new DotField(app.renderer.width, app.renderer.height);
+  const faviconTexture = await loadDotFieldFaviconTexture();
+  const dotField = new DotField(app.renderer.width, app.renderer.height, faviconTexture);
   app.stage.sortableChildren = true;
   dotField.container.zIndex = 0;
 
