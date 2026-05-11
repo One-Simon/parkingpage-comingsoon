@@ -1,4 +1,5 @@
 import type { Application } from 'pixi.js';
+import { getCachedCanvasRect } from './canvasRect.ts';
 
 const FALLBACK_CW = 1280;
 const FALLBACK_CH = 720;
@@ -8,11 +9,8 @@ export function getPhysicsViewport(app: Application): { cw: number; ch: number }
   if (typeof window === 'undefined') {
     return { cw: FALLBACK_CW, ch: FALLBACK_CH };
   }
-  const rect = app.canvas.getBoundingClientRect();
-  return {
-    cw: Math.max(rect.width, 1),
-    ch: Math.max(rect.height, 1),
-  };
+  const rect = getCachedCanvasRect(app);
+  return { cw: rect.width, ch: rect.height };
 }
 
 /** Pointer `clientX`/`clientY` in the same CSS basis as Matter bodies (canvas-local). */
@@ -21,7 +19,7 @@ export function clientToCanvasCss(
   clientY: number,
   app: Application
 ): { x: number; y: number } {
-  const rect = app.canvas.getBoundingClientRect();
+  const rect = getCachedCanvasRect(app);
   return {
     x: clientX - rect.left,
     y: clientY - rect.top,

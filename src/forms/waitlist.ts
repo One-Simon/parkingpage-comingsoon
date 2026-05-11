@@ -1,11 +1,11 @@
 import { messaging } from '../copy/researchMessaging.ts';
 
-export type WaitlistState = 'idle' | 'loading' | 'success' | 'error' | 'disabled';
+type WaitlistState = 'idle' | 'loading' | 'success' | 'error' | 'disabled';
 
 const EMAIL_RE =
   /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 
-export interface WaitlistElements {
+interface WaitlistElements {
   form: HTMLFormElement;
   input: HTMLInputElement;
   button: HTMLButtonElement;
@@ -33,6 +33,9 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
   status.textContent = '';
 
   let state: WaitlistState = hasEndpoint ? 'idle' : 'disabled';
+  let lastSubmitAt = 0;
+  /** Soft throttle to prevent accidental double-POSTs from rapid clicks / Enter spam. */
+  const SUBMIT_THROTTLE_MS = 1500;
 
   const setState = (next: WaitlistState, message = '') => {
     state = next;
@@ -43,18 +46,18 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
         button.disabled = false;
         break;
       case 'loading':
-        status.textContent = 'Sending…';
+        status.textContent = messaging.waitlistStatus.sending;
         input.disabled = true;
         button.disabled = true;
         break;
       case 'success':
-        status.textContent = 'Thanks — you are on the list.';
+        status.textContent = messaging.waitlistStatus.success;
         input.value = '';
         input.disabled = false;
         button.disabled = false;
         break;
       case 'error':
-        status.textContent = message || 'Could not submit. Try again.';
+        status.textContent = message || messaging.waitlistStatus.genericError;
         input.disabled = false;
         button.disabled = false;
         break;
@@ -77,11 +80,14 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
     async (ev) => {
       ev.preventDefault();
       if (!hasEndpoint || state === 'loading') return;
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (now - lastSubmitAt < SUBMIT_THROTTLE_MS) return;
       const raw = input.value.trim();
       if (!EMAIL_RE.test(raw)) {
-        status.textContent = 'Enter a valid email address.';
+        status.textContent = messaging.waitlistStatus.invalidEmail;
         return;
       }
+      lastSubmitAt = now;
       setState('loading');
       const body = new FormData();
       body.append('email', raw);
@@ -94,7 +100,7 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
           body,
         });
         if (!res.ok) {
-          let msg = `Request failed (${res.status}).`;
+          let msg = messaging.waitlistStatus.requestFailed(res.status);
           try {
             const data = await res.json();
             if (data.errors && typeof data.errors === 'object') {
@@ -128,7 +134,7 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
         }
         setState('success');
       } catch {
-        setState('error', 'Network blocked or offline.');
+        setState('error', messaging.waitlistStatus.networkError);
         input.focus({ preventScroll: true });
       }
     },

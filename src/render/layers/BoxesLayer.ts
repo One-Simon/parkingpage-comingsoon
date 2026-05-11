@@ -3,7 +3,6 @@
   Body,
   Composite,
   Constraint,
-  Detector,
   Engine,
   Events,
   Mouse,
@@ -11,305 +10,110 @@
   Sleeping,
   Vertices,
 } from 'matter-js';
-import type { Constraint as ConstraintType } from 'matter-js';
 import type { IEvent, IEventCollision, MouseConstraint as Manipulator } from 'matter-js';
 import { Container, Graphics } from 'pixi.js';
 import type { Application } from 'pixi.js';
-import { layoutSourcehiveInViewport } from '../blockLetters/sourcehiveLayout.ts';
 import { cssPixelsToPixiFactors } from '../coords.ts';
+import { drawTiles } from '../mosaic/MosaicRenderer.ts';
 import { clientToCanvasCss, getPhysicsViewport } from '../physicsViewport.ts';
+import { SourcehiveProvider } from '../mosaic/providers/SourcehiveProvider.ts';
+import { transitionPhase } from '../mosaic/PhaseMachine.ts';
+import type { TileLayout, TileLayoutProvider, TileRecord } from '../mosaic/types.ts';
+import { TILE_LABEL } from '../mosaic/types.ts';
+import {
+  ENGINE_DELTA_CAP_MS,
+  FLOOR_LABEL,
+  GRAVITY,
+  TILE_BODY_DENSITY as MOSAIC_TILE_DENSITY,
+  TILE_CATEGORY as MOSAIC_TILE_CATEGORY,
+  WALL_CATEGORY as MOSAIC_WALL_CATEGORY,
+  WALL_LABEL,
+  WALL_THICK,
+  createTileBody,
+  tileFilterFull,
+  tileFilterWallsOnly,
+} from '../mosaic/MosaicPhysics.ts';
+import {
+  CursorSpeedSampler,
+  POINTER_REPULSE_RADIUS_CSS,
+  applyPointerField,
+} from '../mosaic/PointerField.ts';
+import {
+  LATTICE_GLIDE_ABORT_MULT,
+  LATTICE_GLIDE_ENTER_MULT,
+  LATTICE_GLIDE_MAX_MS,
+  LATTICE_GLIDE_RETURNING_HANDOFF_MULT,
+  LATTICE_GLIDE_SNAP_MULT,
+  chooseGlideDurationMs,
+  evaluateGlide,
+  resetGlideState,
+} from '../mosaic/LatticeGlide.ts';
+import {
+  BOUND_ANGLE_DAMP,
+  BOUND_LOCK_ANG_MAX,
+  BOUND_LOCK_DIST_MULT,
+  BOUND_LOCK_SPEED_MAX,
+  BOUND_LOCK_STILL_MS,
+  BOUND_STUCK_ANG_MAX,
+  BOUND_STUCK_DIST_EPS,
+  BOUND_STUCK_LOW_MOTION_ANG,
+  BOUND_STUCK_LOW_MOTION_MS,
+  BOUND_STUCK_LOW_MOTION_SPD,
+  BOUND_STUCK_MS,
+  BOUND_STUCK_PROGRESS_MIN,
+  BOUND_STUCK_SPD_MAX,
+  BOUNDS_PAD_CSS,
+  HIT_RELEASE_SPEED,
+  HOMING_LAMBDA,
+  HOMING_NEAR_STEP_SCALE,
+  HOMING_SLOW_OUTER_FRAC,
+  HOMING_TETHER_HANDOFF_CELL_MULT,
+  HOMING_TETHER_HANDOFF_RELEASE_FRAC,
+  OFF_ANCHOR_RESPAWN_MS,
+  POST_INTERACT_HOME_RESUME_MS,
+  QUIET_OFF_HOME_ANG,
+  QUIET_OFF_HOME_MAX_DIST_MULT,
+  QUIET_OFF_HOME_MS,
+  QUIET_OFF_HOME_SPD,
+  RELEASE_COAST_MS,
+  RELEASE_DIST_MULT,
+  REST_SPEED_MAX,
+  RETURN_DELAY_MS,
+  SUPPORT_DY_MIN,
+  TETHER_DAMPING_FAR,
+  TETHER_DAMPING_NEAR,
+  TETHER_DAMPING_RELAX,
+  TETHER_RAMP_DIST_MULT,
+  TETHER_RELAX_RADIUS_MULT,
+  TETHER_STIFFNESS_FAR,
+  TETHER_STIFFNESS_NEAR,
+  TETHER_STIFFNESS_RELAX,
+} from '../mosaic/MosaicSettling.ts';
 
-/**
- * Minimum pointer “fat finger” radius in CSS px; scales with {@link BoxesLayer.cellSizeCss}.
- * Used for wake-on-press and for grabbing bodies before Matter’s point-only vertex test runs.
- */
-const POINTER_INTERACTION_RADIUS_CSS = 34;
-
-/**
- * When true: any Matter `MouseConstraint` attachment to mosaic cells is cleared before/after each
- * {@link Engine.update} so only pointer repulsion/tethers are felt. Off by default — direct hits on a
- * tile still grab via {@link MouseConstraint}.
- */
-const BOX_POINTER_GRAB_DISABLED = false;
-
-const WALL_THICK = 28;
-/** Matter `body.label` for one mosaic **box** (grid cell). Word “letter” in the filename is historical. */
-const LETTER_LABEL = 'sourcehive-cell';
-const LETTER_CATEGORY = 0x0002;
-const WALL_CATEGORY = 0x0004;
-const WALL_LABEL = 'physics-wall';
-const FLOOR_LABEL = 'physics-floor';
-const LAYOUT_FRAC_Y = 0.38;
-
-const LETTER_BODY_DENSITY = 0.003;
+const LETTER_CATEGORY = MOSAIC_TILE_CATEGORY;
+const WALL_CATEGORY = MOSAIC_WALL_CATEGORY;
+const LETTER_BODY_DENSITY = MOSAIC_TILE_DENSITY;
 const MATTER_INERTIA_SCALE = 4;
-const ENGINE_DELTA_CAP_MS = 1000 / 60;
-
-/** If one dynamic letter hits another at least this fast, the struck tile transitions to `falling`. */
-const HIT_RELEASE_SPEED = 1.15;
-
-const GRAVITY = { x: 0, y: 0.32, scale: 0.00065 };
 
 /** Tight cursor follow; raise toward 1 if drag still lags. */
 const MOUSE_CONSTRAINT_STIFFNESS = 0.999;
 const MOUSE_CONSTRAINT_DAMPING = 0.06;
 
-/**
- * When true, removes neighbor anchor tethers under the pick disc while dragging (pile clearance).
- * Default off: prefer cutting only when a future force-based rule warrants it.
- */
-const NEIGHBOR_TETHER_CUT_WHILE_DRAG = false;
-
-/**
- * When true, `pointerup` re-runs `ensureAnchorTether` for every `bound` dynamic. When false, field
- * off is minimal and per-tile logic / drag-end handles repair.
- */
-const POINTER_UP_ENSURE_ANCHOR_TETHER_FOR_ALL_BOUND = false;
-
-/** Beyond this multiple of cell size from anchor, the tether is removed and the tile `fall`s. */
-const RELEASE_DIST_MULT = 29;
-
-/**
- * Stiffness/damping ramp uses this distance (× cell), not {@link RELEASE_DIST_MULT}. Larger values
- * keep pull weaker until the tile is closer to its slot (“contained” tether).
- */
-const TETHER_RAMP_DIST_MULT = 10.25;
-
-/**
- * After primary pointer release on the canvas, homing and tether strength ease from 0 to full over
- * this duration for each box (see {@link LetterRecord.lastBoxInteractPerf}).
- */
-const POST_INTERACT_HOME_RESUME_MS = 560;
-/**
- * After pointer release, tiles ride their field-imparted velocity for this long with the tether
- * very weak (`boxHomingEase` ramps 0→1 over this window). Once it reaches 1, the kinematic
- * ease-in-out glide takes over for the controlled return. Longer = more momentum carry.
- */
-const RELEASE_COAST_MS = 420;
-/**
- * Anchor tether: soft near the lattice rest pose; strength ramps with distance using
- * {@link TETHER_RAMP_DIST_MULT} (not break distance {@link RELEASE_DIST_MULT}).
- */
-const TETHER_STIFFNESS_NEAR = 0.00042;
-const TETHER_STIFFNESS_FAR = 0.0024;
-const TETHER_DAMPING_NEAR = 0.0012;
-const TETHER_DAMPING_FAR = 0.0028;
-
-/**
- * Within this many × cell size from anchor, blend tether toward “relaxed” so collisions can
- * re-seat tiles against neighbors without the constraint fighting the pile.
- */
-const TETHER_RELAX_RADIUS_MULT = 0.52;
-const TETHER_STIFFNESS_RELAX = 0.00003;
-const TETHER_DAMPING_RELAX = 0.00065;
-
-/** Snap when nearly home; smaller = stricter “in place”. */
+/** Snap when nearly home; smaller = stricter "in place". */
 const REASSEMBLY_DIST_EPS_MULT = 0.04;
 
 /** If this long at (near) rest but still off anchor, start homing (no instant snap). */
 const REASSEMBLY_STILL_MS = 720;
-/** Near-anchor “bound” tiles: must be almost motionless to accumulate still time. */
+/** Near-anchor `bound` tiles: must be almost motionless to accumulate still time. */
 const REASSEMBLY_SPEED_MAX_BOUND = 0.16;
 const REASSEMBLY_ANG_MAX = 0.045;
 
-/** Falling, never hits floor: low-speed dwell → same homing path as floor return. */
+/** Falling, never hits floor: low-speed dwell ⇒ same homing path as floor return. */
 const FALLING_AIR_STUCK_MS = 680;
 const FALLING_AIR_STUCK_SPEED = 0.2;
 
-/**
- * Homing switches to dynamic `bound` + tether only inside this band from the anchor — a small
- * fraction of the break span, capped by a few cells (not the whole `RELEASE_DIST_MULT` range).
- */
-const HOMING_TETHER_HANDOFF_CELL_MULT = 4.2;
-const HOMING_TETHER_HANDOFF_RELEASE_FRAC = 0.096;
-
-/** Inside this fraction of release distance, ease kinematic step rate (outer band than handoff). */
-const HOMING_SLOW_OUTER_FRAC = 0.22;
-/** Minimum fraction of full step when deep inside {@link HOMING_SLOW_OUTER_FRAC} band. */
-const HOMING_NEAR_STEP_SCALE = 0.4;
-
-/** After handoff to tether: this long nearly still and very close → commit to locked lattice. */
-const BOUND_LOCK_DIST_MULT = 0.055;
-const BOUND_LOCK_SPEED_MAX = 0.088;
-const BOUND_LOCK_ANG_MAX = 0.035;
-const BOUND_LOCK_STILL_MS = 1450;
-
-/**
- * `bound` + tether (or near slot without glide): no progress toward anchor while nearly still →
- * kinematic snap to lattice via {@link settleLetterAtAnchor} (bypasses physics pile-up).
- */
-const BOUND_STUCK_SPD_MAX = 0.16;
-const BOUND_STUCK_ANG_MAX = 0.055;
-const BOUND_STUCK_DIST_EPS = 0.35;
-const BOUND_STUCK_PROGRESS_MIN = 0.09;
-const BOUND_STUCK_MS = 560;
-/** `bound` + tether: velocity almost zero while not finishing homing → snap sooner than plateau. */
-const BOUND_STUCK_LOW_MOTION_SPD = 0.062;
-const BOUND_STUCK_LOW_MOTION_ANG = 0.048;
-const BOUND_STUCK_LOW_MOTION_MS = 340;
-
-/**
- * `bound`: off lattice anchor, not moving meaningfully → {@link BoxesLayer.settleLetterAtAnchor} after
- * this long. Catches jams (e.g. on another letter) without tether / distance-plateau rules.
- */
-const QUIET_OFF_HOME_MS = 300;
-const QUIET_OFF_HOME_SPD = 0.15;
-const QUIET_OFF_HOME_ANG = 0.058;
-/** Max anchor error (× cell) for this shortcut — only when already near the mosaic. */
-const QUIET_OFF_HOME_MAX_DIST_MULT = 9.5;
-
-/**
- * Last resort: dynamic tile stays off its lattice anchor this long → replace Matter body + Pixi
- * graphics with a fresh locked tile at the current layout anchor.
- */
-const OFF_ANCHOR_RESPAWN_MS = 22000;
-
-/**
- * Final approach: kinematic lerp toward anchor, **walls-only** letter–letter filter so the glider
- * cannot drive itself into a neighbor; no anchor tether. Canceled by user grab / large anchor mismatch.
- * Wider entry band means tiles switch to smooth slide earlier in the post-press return so neighboring
- * tethered tiles don't fight each other through collision contacts.
- */
-const LATTICE_GLIDE_ENTER_MULT = 6.5;
-/**
- * Target speed (CSS px / s) used to derive the duration of an ease-in-out glide segment from its
- * start distance: `duration = clamp(distance / SPEED, MIN_DUR, MAX_DUR)`. Roughly mirrors the pace
- * of the pointer field so push and pull-back feel related.
- */
-const LATTICE_GLIDE_TARGET_SPEED_PX_PER_S = 80;
-const LATTICE_GLIDE_MIN_DURATION_MS = 600;
-const LATTICE_GLIDE_MAX_DURATION_MS = 3200;
-/** Spawn-time appear animation uses its own (faster) pace, independent of post-release tuning. */
-const LATTICE_GLIDE_SPAWN_TARGET_SPEED_PX_PER_S = 160;
-const LATTICE_GLIDE_SPAWN_MIN_DURATION_MS = 380;
-const LATTICE_GLIDE_SPAWN_MAX_DURATION_MS = 1600;
-/** `returning` kinematic homing hands off to glide when closer than this × cell (larger = sooner). */
-const LATTICE_GLIDE_RETURNING_HANDOFF_MULT = 5.45;
-const LATTICE_GLIDE_SNAP_MULT = 0.032;
-/**
- * Abort glide and restore tether if farther than this × cell from anchor (must exceed handoff radii).
- */
-const LATTICE_GLIDE_ABORT_MULT = 7.15;
-const LATTICE_GLIDE_MAX_MS = 4800;
-
-/** Minimum pointer-field radius in CSS px; {@link BoxesLayer.pointerRepulsionRadiusPx} also scales with cell size. */
-const POINTER_REPULSE_RADIUS_CSS = 108;
-/** Peak repulsion force (Matter units); scaled by falloff inside the disc. */
-const POINTER_REPULSE_FORCE = 0.00112;
-/** Falling tiles (mid-air) still feel the field, but at this fraction of the bound-tile push. */
-const POINTER_REPULSE_FALLING_MULT = 0.4;
-/** Blend: linear+quadratic falloff so mid-disc push is stronger than pure edge². */
-const POINTER_REPULSE_FALLOFF_LINEAR = 0.3;
-
-/**
- * When a cell’s hull intersects the repulsion disc but its center lies outside radius R, still apply
- * outward push using at least this normalized edge term (0–1) before linear/quadratic falloff.
- */
-const POINTER_FIELD_HULL_OVERLAP_MIN_EDGE = 0.175;
-
-/**
- * At-rest floor for speed scaling: **1** so a stationary press still gets full radial falloff (H1). Higher
- * speeds add up to {@link POINTER_FIELD_SPEED_CAP_MULT}.
- */
-const POINTER_FIELD_SPEED_AT_REST_MULT = 1;
-const POINTER_FIELD_SPEED_CAP_MULT = 2.4;
-const POINTER_FIELD_SPEED_REF_PX_PER_MS = 0.72;
-
-/** Gentle alignment while `bound` (constraint still allows some spin). */
-const BOUND_ANGLE_DAMP = 0.94;
-
-/** After `falling` rests on the **physics floor** (not letter-on-letter), dwell before homing. */
-const RETURN_DELAY_MS = 480;
-
-/** Exponential homing before tether handoff (after floor or air-stuck). */
-const HOMING_LAMBDA = 0.5;
-
-/** While `falling`, resting for dwell requires real floor contact (`FLOOR_LABEL`), not another letter. */
-const REST_SPEED_MAX = 0.52;
-
-const SUPPORT_DY_MIN = 0.55;
-
-const BOUNDS_PAD_CSS = 3;
-
-/**
- * Tile lifecycle:
- * - `bound`: at-rest near anchor (dynamic body + tether). Default phase; receives full pointer-field force.
- * - `falling`: yanked free / past release distance; flies under gravity. Receives weak pointer-field force.
- * - `returning`: kinematic (`isStatic = true` only here) homing back into the slot from far away.
- *
- * No static "locked" lattice anymore: tiles are dynamic from spawn so the pointer field can always push them.
- */
-type AnchorPhase = 'bound' | 'falling' | 'returning';
-
-type LetterRecord = {
-  /** One Matter body = one filled mosaic cell (“box”), not a whole glyph/letter. */
-  body: Body;
-  g: Graphics;
-  order: number;
-  gx: number;
-  gy: number;
-  anchorX: number;
-  anchorY: number;
-  anchorPhase: AnchorPhase;
-  floorDwellMs: number;
-  touchingFloor: boolean;
-  touchingSupport: boolean;
-  /** Ms spent nearly motionless while off-anchor; kicks homing when stuck. */
-  offAnchorStillMs: number;
-  /** `falling` and not on floor: accumulates low-speed air stuck time → homing. */
-  airStuckMs: number;
-  /** `bound` after tether handoff: nearly home & still → slow commit to `locked`. */
-  tetherSettleMs: number;
-  /**
-   * After this box was last affected by **pointer session** (grab or repulsion from a grab), tether /
-   * homing strength ramps 0→1 over {@link POST_INTERACT_HOME_RESUME_MS}. `-1` = never; full strength.
-   */
-  lastBoxInteractPerf: number;
-  /** Active only in `bound`; removed for `falling` / `returning` / `locked`. */
-  anchorTether: ConstraintType | null;
-  /** Ms with negligible distance change after physics while gliding. */
-  latticeGlideStuckMs: number;
-  /** Ms with near-zero body velocity while gliding but still off-slot (see {@link LATTICE_GLIDE_LOW_MOTION_MS}). */
-  latticeGlideLowMotionMs: number;
-  /** Previous anchor distance (after physics); `-1` = unset. */
-  latticeGlideLastDist: number;
-  /** Wall-clock in current glide segment; caps total glide duration. */
-  latticeGlideElapsedMs: number;
-  /** Body position when the current glide segment started; used to drive the ease-in-out curve. */
-  latticeGlideStartX: number;
-  latticeGlideStartY: number;
-  /**
-   * Body velocity (CSS px / ms) captured at glide entry so the cubic Hermite curve can preserve
-   * the tile's incoming momentum, decelerate it smoothly, then reverse toward the anchor — instead
-   * of clamping velocity to 0 at entry (which produces a visible "jerk back").
-   */
-  latticeGlideStartVx: number;
-  latticeGlideStartVy: number;
-  /** Distance-derived target duration for the current glide segment (ms). `0` = unset. */
-  latticeGlideDurationMs: number;
-  /**
-   * True for the initial appear animation segment; switches the curve to the spawn-tuned target
-   * speed/duration bounds so artwork load-in stays snappy independent of post-release pace.
-   */
-  latticeGlideIsSpawn: boolean;
-  /** Ms with no anchor progress while `bound` (see {@link BOUND_STUCK_MS}). */
-  boundStuckMs: number;
-  /** Ms with near-zero velocity in the bound stuck zone (see {@link BOUND_STUCK_LOW_MOTION_MS}). */
-  boundLowMotionMs: number;
-  /** `bound` only: off-anchor + quiet body; see {@link QUIET_OFF_HOME_MS}. */
-  quietOffHomeMs: number;
-  /**
-   * Dynamic tile off lattice anchor: accumulates toward {@link OFF_ANCHOR_RESPAWN_MS} → hard respawn.
-   */
-  offAnchorRespawnMs: number;
-  /** Prior anchor distance for stuck detection; `-1` = unset. */
-  boundStuckLastDist: number;
-  /**
-   * True while doing the final visual slide onto the slot: tether off, full letter collisions, no
-   * pointer repulsion — only direct grab cancels (see {@link cancelLatticeGlide}).
-   */
-  latticeGlide: boolean;
-};
+/** Glide tunables live in `mosaic/LatticeGlide.ts`. Pointer-field tunables live in
+ *  `mosaic/PointerField.ts`. Settling tunables live in `mosaic/MosaicSettling.ts`. */
 
 type DragPayload = IEvent<Manipulator> & { body: Body | null };
 
@@ -320,126 +124,25 @@ type MouseWithButton = Mouse & {
   offset: { x: number; y: number };
 };
 
-/** True if circle (center cx,cy radius r) intersects axis-aligned rectangle [minX,maxX]×[minY,maxY]. */
-function circleIntersectsAabb(
-  cx: number,
-  cy: number,
-  r: number,
-  minX: number,
-  minY: number,
-  maxX: number,
-  maxY: number,
-): boolean {
-  const nx = Math.max(minX, Math.min(cx, maxX));
-  const ny = Math.max(minY, Math.min(cy, maxY));
-  const dx = cx - nx;
-  const dy = cy - ny;
-  return dx * dx + dy * dy <= r * r;
-}
-
-function pointToSegmentDistanceSq(
-  px: number,
-  py: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): number {
-  const abx = bx - ax;
-  const aby = by - ay;
-  const apx = px - ax;
-  const apy = py - ay;
-  const abLenSq = abx * abx + aby * aby;
-  if (abLenSq < 1e-12) {
-    return apx * apx + apy * apy;
-  }
-  let t = (apx * abx + apy * aby) / abLenSq;
-  t = Math.max(0, Math.min(1, t));
-  const qx = ax + t * abx;
-  const qy = ay + t * aby;
-  const dx = px - qx;
-  const dy = py - qy;
-  return dx * dx + dy * dy;
-}
+const letterFilterFull = tileFilterFull;
+const letterFilterWallsOnly = tileFilterWallsOnly;
 
 /**
- * True if a disc (center `pt`, radius) intersects the body’s convex part polygon — AABB is only a
- * cheap reject (no “AABB overlap alone counts as hit”, which false-positived on rotated tiles).
+ * Mosaic orchestrator. Owns the Matter `Engine`, the Pixi root container, the Matter mouse +
+ * `MouseConstraint`, the canvas pointer wiring, and the per-frame `update(dt)` pipeline. Pure
+ * sub-systems live as siblings under `src/render/mosaic/`:
+ *
+ * - {@link MosaicPhysics} — body factory, walls, collision filters, tether primitives.
+ * - {@link PointerField} — radial repulsion math + cursor speed sampler.
+ * - {@link LatticeGlide} — Hermite curve glide segment math + thresholds.
+ * - {@link MosaicSettling} — settling, heal & respawn tunables and pure helpers.
+ * - {@link MosaicRenderer} — per-frame Pixi draw of every tile.
+ * - {@link PhaseMachine} — typed `bound`/`falling`/`returning` transitions.
+ * - {@link TileLayoutProvider} (e.g. {@link SourcehiveProvider}) — pluggable shape source.
+ *
+ * `update(dt)` orchestrates the order: mouse + grab filters → tether strengths → pointer field →
+ * glide pre-step → `Engine.update` → settling/heal → glide finalize → renderer.
  */
-function letterPointerHitDisc(pt: { x: number; y: number }, radius: number, body: Body): boolean {
-  const { min, max } = body.bounds;
-  if (!circleIntersectsAabb(pt.x, pt.y, radius, min.x, min.y, max.x, max.y)) return false;
-  const r2 = radius * radius;
-  const start = body.parts.length > 1 ? 1 : 0;
-  for (let p = start; p < body.parts.length; p++) {
-    const verts = body.parts[p].vertices;
-    if (Vertices.contains(verts, pt)) return true;
-    for (let i = 0; i < verts.length; i++) {
-      const v0 = verts[i];
-      const v1 = verts[(i + 1) % verts.length];
-      const vx = v0.x - pt.x;
-      const vy = v0.y - pt.y;
-      if (vx * vx + vy * vy <= r2) return true;
-      if (pointToSegmentDistanceSq(pt.x, pt.y, v0.x, v0.y, v1.x, v1.y) <= r2) return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Closest point on the mosaic cell’s convex hull (world vertices) to the pointer, and distance to it.
- * Used for radial push **from the surface** so influence starts when the field reaches the near face,
- * not when the **body center** enters radius R.
- */
-function letterClosestSurfacePointToPointer(
-  body: Body,
-  px: number,
-  py: number,
-): { qx: number; qy: number; dist: number } {
-  let bestD2 = Infinity;
-  let qx = body.position.x;
-  let qy = body.position.y;
-  const start = body.parts.length > 1 ? 1 : 0;
-  for (let p = start; p < body.parts.length; p++) {
-    const verts = body.parts[p].vertices;
-    const n = verts.length;
-    for (let i = 0; i < n; i++) {
-      const v0 = verts[i];
-      const v1 = verts[(i + 1) % n];
-      const abx = v1.x - v0.x;
-      const aby = v1.y - v0.y;
-      const apx = px - v0.x;
-      const apy = py - v0.y;
-      const abLenSq = abx * abx + aby * aby;
-      let t = abLenSq > 1e-12 ? (apx * abx + apy * aby) / abLenSq : 0;
-      t = Math.max(0, Math.min(1, t));
-      const cx = v0.x + t * abx;
-      const cy = v0.y + t * aby;
-      const dx = px - cx;
-      const dy = py - cy;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestD2) {
-        bestD2 = d2;
-        qx = cx;
-        qy = cy;
-      }
-    }
-  }
-  return { qx, qy, dist: Math.sqrt(Math.max(bestD2, 0)) };
-}
-
-const letterFilterFull = () => ({
-  category: LETTER_CATEGORY,
-  mask: LETTER_CATEGORY | WALL_CATEGORY,
-  group: 0,
-});
-
-const letterFilterWallsOnly = () => ({
-  category: LETTER_CATEGORY,
-  mask: WALL_CATEGORY,
-  group: 0,
-});
-
 export class BoxesLayer {
   readonly root = new Container();
   readonly engine: Engine;
@@ -447,7 +150,11 @@ export class BoxesLayer {
   private mouse!: Mouse;
   private mouseConstraint!: MouseConstraint;
 
-  private letterRecords: LetterRecord[] = [];
+  private tileRecords: TileRecord[] = [];
+  /** O(1) `Body → TileRecord` lookup populated on spawn/respawn; replaces `find()` scans. */
+  private readonly bodyToTile = new WeakMap<Body, TileRecord>();
+  /** Memo for `syncViewportAnchorCache` so we only rebuild on actual viewport size changes. */
+  private anchorCacheViewport: { cw: number; ch: number } | null = null;
   private walls: Body[] = [];
 
   private resizeHandler!: () => void;
@@ -463,13 +170,15 @@ export class BoxesLayer {
   private lastPointerCanvasCss: { x: number; y: number } | null = null;
   private layoutFrozen = false;
   private cellSizeCss = 20;
-  /** `${gx},${gy}` → lattice anchor; rebuilt once per {@link BoxesLayer.update}. */
-  private anchorLayoutCache = new Map<string, { x: number; y: number }>();
+  /** Pluggable layout source. Default = SOURCEHIVE word; injectable in the future. */
+  private readonly layoutProvider: TileLayoutProvider = new SourcehiveProvider();
+  /** `tile.id` → seed; rebuilt once per {@link BoxesLayer.update}. */
+  private anchorLayoutCache = new Map<string, import('../mosaic/types.ts').TileSeed>();
 
   private primaryPointerDownOnCanvas = false;
   /**
-   * True when **pointerdown** overlapped any mosaic cell under {@link pointerEngageRadiusForGrabPx}
-   * (tighter than fat-finger {@link pointerInteractionRadiusPx}): enables grab path + fat finger.
+   * True when the pointerdown literally hit a tile hull (`Vertices.contains`). Only then is Matter's
+   * `MouseConstraint` allowed to attach and grab the body; otherwise the press is field-only.
    */
   private pointerDownStartedOnLetter = false;
   /** Set when canvas uses Pointer Capture so move/up follow the finger reliably. */
@@ -479,8 +188,7 @@ export class BoxesLayer {
    * Previous pointer position for **speed-scaled** radial field strength ({@link applyPointerFieldBeforeStep}).
    * Reset on pointer up / new press.
    */
-  private pointerFieldPrevPx = Number.NaN;
-  private pointerFieldPrevPy = Number.NaN;
+  private readonly cursorSpeed = new CursorSpeedSampler();
 
   private readonly onWindowPointerEnd: () => void;
   private readonly onWindowPointerMoveWhileDown: (ev: PointerEvent) => void;
@@ -494,30 +202,30 @@ export class BoxesLayer {
   private mouseGrabLetterBody(): Body | null {
     const mc = this.mouseConstraint;
     const b = mc.body ?? mc.constraint.bodyB;
-    return b != null && b.label === LETTER_LABEL ? b : null;
+    return b != null && b.label === TILE_LABEL ? b : null;
   }
 
   /**
-   * True when the mouse constraint is pulling a **mosaic box** body (one `LetterRecord` cell), not
-   * a “letter” glyph. Letters in the UI are made of many such boxes.
+   * True when the mouse constraint is pulling a **mosaic box** body (one `TileRecord` cell), not
+   * a �letter� glyph. Letters in the UI are made of many such boxes.
    */
   private isDraggingBox(): boolean {
     return this.mouseGrabLetterBody() != null;
   }
 
   /**
-   * Radius of the radial pointer **force field** (wake + repulsion). Larger than pick/grab radius;
-   * scales with {@link cellSizeCss}. See {@link pointerInteractionRadiusPx} for fat-finger grab.
+   * Radius of the radial pointer **force field** (wake + repulsion); scales with {@link cellSizeCss}.
+   * Direct grab uses strict-hull `Vertices.contains` only � no separate fat-finger disc.
    */
   private pointerRepulsionRadiusPx(): number {
     return Math.max(POINTER_REPULSE_RADIUS_CSS, this.cellSizeCss * 3.68);
   }
 
   /**
-   * Homing / anchor-tether scale from {@link LetterRecord.lastBoxInteractPerf} (grab + repulsion).
+   * Homing / anchor-tether scale from {@link TileRecord.lastBoxInteractPerf} (grab + repulsion).
    * The grabbed box stays at 0 while `mouseConstraint` holds it.
    */
-  private boxHomingEase(r: LetterRecord): number {
+  private boxHomingEase(r: TileRecord): number {
     const b = r.body;
     const grab = this.mouseGrabLetterBody();
     if (grab != null && grab === b) return 0;
@@ -528,7 +236,7 @@ export class BoxesLayer {
 
   /**
    * Drive Matter mouse in the same **CSS canvas space** as mosaic bodies ({@link layoutSourcehiveInViewport}
-   * / {@link getPhysicsViewport}). Do not apply {@link Mouse.scale}: with Pixi `autoDensity`, Matter’s
+   * / {@link getPhysicsViewport}). Do not apply {@link Mouse.scale}: with Pixi `autoDensity`, Matter�s
    * default scale maps to backing-buffer px and would misalign pointer vs bodies on HiDPI.
    */
   private syncMatterMouseToCanvasCss(p: { x: number; y: number }): void {
@@ -575,8 +283,7 @@ export class BoxesLayer {
       }
       this.primaryPointerDownOnCanvas = false;
       this.pointerDownStartedOnLetter = false;
-      this.pointerFieldPrevPx = Number.NaN;
-      this.pointerFieldPrevPy = Number.NaN;
+      this.cursorSpeed.reset();
       (this.mouse as MouseWithButton).button = -1;
       if (this.pointerCaptureId != null) {
         try {
@@ -585,13 +292,6 @@ export class BoxesLayer {
           /* no-op */
         }
         this.pointerCaptureId = null;
-      }
-      if (POINTER_UP_ENSURE_ANCHOR_TETHER_FOR_ALL_BOUND) {
-        for (const r of this.letterRecords) {
-          if (r.anchorPhase === 'bound' && !r.body.isStatic) {
-            this.ensureAnchorTether(r);
-          }
-        }
       }
       // On release: enforce a real coast window. Re-stamp `lastBoxInteractPerf` so `boxHomingEase`
       // sits near 0 right after release and climbs to 1 over exactly RELEASE_COAST_MS, regardless
@@ -602,8 +302,8 @@ export class BoxesLayer {
       if (hadCanvasPress) {
         const now = performance.now();
         const stampForCoast = now - (POST_INTERACT_HOME_RESUME_MS - RELEASE_COAST_MS);
-        for (const r of this.letterRecords) {
-          if (r.anchorPhase !== 'bound' && r.anchorPhase !== 'falling') continue;
+        for (const r of this.tileRecords) {
+          if (r.phase !== 'bound' && r.phase !== 'falling') continue;
           if (r.lastBoxInteractPerf > 0) {
             r.lastBoxInteractPerf = stampForCoast;
           }
@@ -623,21 +323,21 @@ export class BoxesLayer {
 
     this.onDragStart = (ev: IEvent<Manipulator>) => {
       const b = (ev as DragPayload).body;
-      if (!b || b.label !== LETTER_LABEL) return;
+      if (!b || b.label !== TILE_LABEL) return;
       this.wakeLetter(b);
-      const rec = this.letterRecords.find((r) => r.body === b);
+      const rec = this.bodyToTile.get(b);
       if (rec?.latticeGlide) this.cancelLatticeGlide(rec);
-      if (rec?.anchorPhase === 'bound') this.removeAnchorTether(rec);
+      if (rec?.phase === 'bound') this.removeAnchorTether(rec);
     };
 
     this.onDragEnd = (ev: IEvent<Manipulator>) => {
       const b = (ev as DragPayload).body;
-      if (!b || b.label !== LETTER_LABEL) return;
-      const rec = this.letterRecords.find((r) => r.body === b);
+      if (!b || b.label !== TILE_LABEL) return;
+      const rec = this.bodyToTile.get(b);
       if (!rec) return;
       const now = performance.now();
       rec.lastBoxInteractPerf = now;
-      if (rec.anchorPhase === 'bound' && !rec.body.isStatic) {
+      if (rec.phase === 'bound' && !rec.body.isStatic) {
         const dx = rec.anchorX - rec.body.position.x;
         const dy = rec.anchorY - rec.body.position.y;
         const dist = Math.hypot(dx, dy);
@@ -678,8 +378,7 @@ export class BoxesLayer {
       this.syncMatterMouseToCanvasCss(p);
       const mp = this.mouse.position;
       this.pointerDownStartedOnLetter = this.pointerDownEngagedMosaicAtPress(mp);
-      this.pointerFieldPrevPx = Number.NaN;
-      this.pointerFieldPrevPy = Number.NaN;
+      this.cursorSpeed.reset();
       try {
         (ev.currentTarget as HTMLCanvasElement).setPointerCapture(ev.pointerId);
         this.pointerCaptureId = ev.pointerId;
@@ -729,25 +428,13 @@ export class BoxesLayer {
     });
   }
 
-  /** Clears mosaic grab when {@link BOX_POINTER_GRAB_DISABLED} so Matter cannot retain `bodyB`. */
-  private clearLetterMouseGrabIfDisabled(): void {
-    if (!BOX_POINTER_GRAB_DISABLED) return;
-    const mc = this.mouseConstraint;
-    const b = mc.body ?? mc.constraint.bodyB;
-    if (b && b.label === LETTER_LABEL) {
-      this.releaseMouseConstraintIfDraggingBody(b);
-    }
-  }
-
   /**
    * Matter runs {@link MouseConstraint} on `beforeUpdate` and attaches when the pointer lies inside
-   * a body's hull. Clearing `bodyB` after {@link Engine.update} cannot undo forces applied during the
-   * physics step. For field-only presses (`!pointerDownStartedOnLetter`), set `collisionFilter.mask`
-   * to 0 so {@link Detector.canCollide} never picks mosaic cells (evidence: matter-js
-   * `MouseConstraint.update` + `Detector.canCollide`).
+   * a body's hull. Clearing `bodyB` after {@link Engine.update} cannot undo forces applied during
+   * the physics step. For field-only presses (`!pointerDownStartedOnLetter`), set
+   * `collisionFilter.mask` to 0 so the constraint's pick test never selects mosaic cells.
    */
   private syncMouseConstraintPickCollisionFilter(): void {
-    if (BOX_POINTER_GRAB_DISABLED) return;
     const mc = this.mouseConstraint;
     if (this.primaryPointerDownOnCanvas && !this.pointerDownStartedOnLetter) {
       mc.collisionFilter = {
@@ -777,57 +464,63 @@ export class BoxesLayer {
     if (!this.primaryPointerDownOnCanvas) return;
     const mc = this.mouseConstraint;
     const b = mc.body ?? mc.constraint.bodyB;
-    if (b && b.label === LETTER_LABEL) {
+    if (b && b.label === TILE_LABEL) {
       this.releaseMouseConstraintIfDraggingBody(b);
     }
   }
 
   /**
    * Strict click-on-square: pointerdown only "engages" the mosaic for grab if the cursor lies inside
-   * an actual tile hull (`Vertices.contains`). No fat-finger disc — anything else is field-only and
+   * an actual tile hull (`Vertices.contains`). No fat-finger disc � anything else is field-only and
    * Matter's `MouseConstraint` is mask-disabled by {@link syncMouseConstraintPickCollisionFilter}.
    */
   private pointerDownEngagedMosaicAtPress(pt: { x: number; y: number }): boolean {
-    for (const rec of this.letterRecords) {
+    for (const rec of this.tileRecords) {
       const body = rec.body;
-      if (body.label !== LETTER_LABEL) continue;
+      if (body.label !== TILE_LABEL) continue;
       const start = body.parts.length > 1 ? 1 : 0;
       for (let p = start; p < body.parts.length; p++) {
-        if (Vertices.contains(body.parts[p].vertices, pt)) return true;
+        const part = body.parts[p];
+        if (part && Vertices.contains(part.vertices, pt)) return true;
       }
     }
     return false;
   }
 
-  /** Radius (CSS px) used only by neighbor-tether-cut while dragging; pointer grab itself is strict-hull. */
-  private pointerInteractionRadiusPx(): number {
-    return Math.max(POINTER_INTERACTION_RADIUS_CSS, this.cellSizeCss * 1.2);
-  }
-
-  private fillAnchorCacheFromLayout(layout: ReturnType<typeof layoutSourcehiveInViewport>): void {
-    this.cellSizeCss = layout.cellSizeCss;
+  private fillAnchorCacheFromLayout(layout: TileLayout): void {
+    this.cellSizeCss = layout.defaultCellSizeCss;
     const cache = this.anchorLayoutCache;
     cache.clear();
     for (const t of layout.tiles) {
-      cache.set(`${t.gx},${t.gy}`, { x: t.x, y: t.y });
+      cache.set(t.id, t);
     }
+    // Force `syncViewportAnchorCache` to re-evaluate on the next frame because the cache may
+    // have been built for a viewport size that hasn't reached the memo yet.
+    this.anchorCacheViewport = null;
+  }
+
+  private computeLayout(cw: number, ch: number): TileLayout {
+    return this.layoutProvider.compute(cw, ch);
   }
 
   private syncViewportAnchorCache(): void {
     const { cw, ch } = getPhysicsViewport(this.app);
-    const layout = layoutSourcehiveInViewport(cw, ch, LAYOUT_FRAC_Y);
-    this.fillAnchorCacheFromLayout(layout);
+    const prev = this.anchorCacheViewport;
+    if (prev && prev.cw === cw && prev.ch === ch) return;
+    this.anchorCacheViewport = { cw, ch };
+    this.fillAnchorCacheFromLayout(this.computeLayout(cw, ch));
   }
 
-  private syncRecordAnchorToLayout(r: LetterRecord): void {
-    const p = this.anchorLayoutCache.get(`${r.gx},${r.gy}`);
+  private syncRecordAnchorToLayout(r: TileRecord): void {
+    const p = this.anchorLayoutCache.get(r.id);
     if (p) {
       r.anchorX = p.x;
       r.anchorY = p.y;
+      r.sizeCss = p.sizeCss;
     }
   }
 
-  private removeAnchorTether(r: LetterRecord): void {
+  private removeAnchorTether(r: TileRecord): void {
     if (!r.anchorTether) return;
     Composite.remove(this.engine.world, r.anchorTether);
     r.anchorTether = null;
@@ -843,9 +536,9 @@ export class BoxesLayer {
   }
 
   /** Matter constraint: pulls body toward current `anchorX/Y` while `bound`. */
-  private ensureAnchorTether(r: LetterRecord): void {
+  private ensureAnchorTether(r: TileRecord): void {
     if (r.latticeGlide) return;
-    if (r.anchorPhase !== 'bound' || r.body.isStatic) return;
+    if (r.phase !== 'bound' || r.body.isStatic) return;
     if (r.anchorTether) {
       r.anchorTether.pointA.x = r.anchorX;
       r.anchorTether.pointA.y = r.anchorY;
@@ -863,17 +556,8 @@ export class BoxesLayer {
     Composite.add(this.engine.world, c);
   }
 
-  private resetGlideProgress(r: LetterRecord): void {
-    r.latticeGlideStuckMs = 0;
-    r.latticeGlideLowMotionMs = 0;
-    r.latticeGlideLastDist = -1;
-    r.latticeGlideElapsedMs = 0;
-    r.latticeGlideStartX = r.body.position.x;
-    r.latticeGlideStartY = r.body.position.y;
-    r.latticeGlideStartVx = 0;
-    r.latticeGlideStartVy = 0;
-    r.latticeGlideDurationMs = 0;
-    r.latticeGlideIsSpawn = false;
+  private resetGlideProgress(r: TileRecord): void {
+    resetGlideState(r);
     r.boundStuckMs = 0;
     r.boundLowMotionMs = 0;
     r.quietOffHomeMs = 0;
@@ -887,30 +571,13 @@ export class BoxesLayer {
     const tetherRampDist = TETHER_RAMP_DIST_MULT * this.cellSizeCss;
     const invRamp = 1 / Math.max(tetherRampDist, 1e-6);
     const relaxR = Math.max(8, TETHER_RELAX_RADIUS_MULT * this.cellSizeCss);
-    const pt = this.mouse.position;
-    const pickR = this.pointerInteractionRadiusPx();
     const dragged = this.mouseGrabLetterBody();
-    const dragging = this.isDraggingBox();
-    const canvasPress = this.primaryPointerDownOnCanvas;
-    const mouseDown = (this.mouse as MouseWithButton).button === 0;
-    /** Matter can keep `mouseConstraint.body` for a frame or two after window pointerup — avoid stripping neighbor tethers then. */
-    const allowNeighborTetherCut = dragging && canvasPress && mouseDown;
 
-    for (const r of this.letterRecords) {
-      if (r.anchorPhase !== 'bound' || r.body.isStatic) continue;
+    for (const r of this.tileRecords) {
+      if (r.phase !== 'bound' || r.body.isStatic) continue;
       if (r.latticeGlide) continue;
       const b = r.body;
       if (dragged === b) continue;
-
-      const cutNeighbor =
-        NEIGHBOR_TETHER_CUT_WHILE_DRAG &&
-        allowNeighborTetherCut &&
-        dragged !== b &&
-        letterPointerHitDisc(pt, pickR, b);
-      if (cutNeighbor) {
-        this.removeAnchorTether(r);
-        continue;
-      }
 
       this.ensureAnchorTether(r);
       if (!r.anchorTether) continue;
@@ -940,78 +607,29 @@ export class BoxesLayer {
    * - **Direction / falloff:** prefer **surface** outward; if degenerate, use **center** radial (H3).
    * - **Strength:** falloff from `dSurf`, scaled by cursor speed (see constants above).
    *
-   * Skips the grabbed body and `returning` / `falling` / `latticeGlide` tiles (`locked` statics are woken only).
+   * Skips the grabbed body, `returning` and `latticeGlide` tiles (those are kinematically driven).
    */
   private applyPointerFieldBeforeStep(dt: number): void {
     if (!this.primaryPointerDownOnCanvas) return;
-    const btn = (this.mouse as MouseWithButton).button;
-    if (btn !== 0) return;
+    if ((this.mouse as MouseWithButton).button !== 0) return;
     const px = this.mouse.position.x;
     const py = this.mouse.position.y;
-    const dtSafe = Math.max(dt, 1e-6);
-    let cursorSpeedPxPerMs = 0;
-    if (Number.isFinite(this.pointerFieldPrevPx) && Number.isFinite(this.pointerFieldPrevPy)) {
-      cursorSpeedPxPerMs =
-        Math.hypot(px - this.pointerFieldPrevPx, py - this.pointerFieldPrevPy) / dtSafe;
-    }
-    this.pointerFieldPrevPx = px;
-    this.pointerFieldPrevPy = py;
-    const speedT = Math.min(1, cursorSpeedPxPerMs / POINTER_FIELD_SPEED_REF_PX_PER_MS);
-    const speedFactor =
-      POINTER_FIELD_SPEED_AT_REST_MULT +
-      (POINTER_FIELD_SPEED_CAP_MULT - POINTER_FIELD_SPEED_AT_REST_MULT) * speedT;
-
-    const R = this.pointerRepulsionRadiusPx();
-    const dragged = this.mouseGrabLetterBody();
-    const now = performance.now();
-
-    for (const r of this.letterRecords) {
-      const b = r.body;
-      if (b.label !== LETTER_LABEL) continue;
-
-      const { qx, qy, dist: dSurf } = letterClosestSurfacePointToPointer(b, px, py);
-      const dCenter = Math.hypot(b.position.x - px, b.position.y - py);
-
-      const inField =
-        dSurf < R || dCenter < R || letterPointerHitDisc({ x: px, y: py }, R, b);
-      if (!inField) continue;
-      if (b.isStatic) continue;
-      if (dragged === b) continue;
-      if (r.anchorPhase === 'returning') continue;
-      if (r.latticeGlide) continue;
-
-      let nx: number;
-      let ny: number;
-      let dEff: number;
-      if (dSurf >= 1e-5) {
-        dEff = dSurf;
-        nx = (qx - px) / dSurf;
-        ny = (qy - py) / dSurf;
-      } else if (dCenter >= 1e-4) {
-        dEff = dCenter;
-        nx = (b.position.x - px) / dCenter;
-        ny = (b.position.y - py) / dCenter;
-      } else {
-        continue;
-      }
-
-      let edge = 1 - Math.min(dEff, R) / R;
-      if (edge <= 0) edge = POINTER_FIELD_HULL_OVERLAP_MIN_EDGE;
-      const falloff =
-        POINTER_REPULSE_FALLOFF_LINEAR * edge +
-        (1 - POINTER_REPULSE_FALLOFF_LINEAR) * edge * edge;
-      const phaseMult = r.anchorPhase === 'falling' ? POINTER_REPULSE_FALLING_MULT : 1;
-      const mag = POINTER_REPULSE_FORCE * falloff * speedFactor * phaseMult;
-      Body.applyForce(b, b.position, { x: nx * mag, y: ny * mag });
-      r.lastBoxInteractPerf = now;
-    }
+    const cursorSpeedPxPerMs = this.cursorSpeed.sample(px, py, dt);
+    applyPointerField(this.tileRecords, {
+      px,
+      py,
+      radius: this.pointerRepulsionRadiusPx(),
+      cursorSpeedPxPerMs,
+      draggedBody: this.mouseGrabLetterBody(),
+      now: performance.now(),
+    });
   }
 
   private boundAngularDampBeforeStep(): void {
     const dragged = this.mouseGrabLetterBody();
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       const b = r.body;
-      if (b.isStatic || r.anchorPhase !== 'bound' || dragged === b) continue;
+      if (b.isStatic || r.phase !== 'bound' || dragged === b) continue;
       if (r.latticeGlide) continue;
       Body.setAngularVelocity(b, b.angularVelocity * BOUND_ANGLE_DAMP);
     }
@@ -1023,14 +641,14 @@ export class BoxesLayer {
    * a static recovery rebuild. Always-dynamic mosaic = no per-press wake bookkeeping.
    */
   private wakeLetter(b: Body): void {
-    const rec = this.letterRecords.find((r) => r.body === b);
+    const rec = this.bodyToTile.get(b);
     if (b.isStatic) {
       Body.setStatic(b, false);
     }
     Sleeping.set(b, false);
     if (rec) {
       this.syncRecordAnchorToLayout(rec);
-      rec.anchorPhase = 'bound';
+      transitionPhase(rec, 'bound', 'wakeLetter');
       rec.floorDwellMs = 0;
       rec.touchingFloor = false;
       rec.touchingSupport = false;
@@ -1055,13 +673,13 @@ export class BoxesLayer {
 
   /**
    * Always-dynamic mosaic means tile-tile collisions no longer need to "wake" anything; bodies are
-   * already dynamic and feel pushes directly. Hard hits still transition `bound` → `falling` for the
+   * already dynamic and feel pushes directly. Hard hits still transition `bound` ? `falling` for the
    * struck tile so it doesn't get yanked back instantly by its tether.
    */
   private maybeWakeFromCollisionPair(pair: IEventCollision<Engine>['pairs'][number]): void {
     const a = pair.bodyA;
     const b = pair.bodyB;
-    if (a.label !== LETTER_LABEL || b.label !== LETTER_LABEL) return;
+    if (a.label !== TILE_LABEL || b.label !== TILE_LABEL) return;
     if (a.isStatic || b.isStatic) return;
 
     const speedA = Math.hypot(a.velocity.x, a.velocity.y);
@@ -1070,9 +688,9 @@ export class BoxesLayer {
     if (!fast) return;
     const target = fast === a ? b : a;
 
-    const rec = this.letterRecords.find((r) => r.body === target);
-    if (!rec || rec.anchorPhase !== 'bound') return;
-    rec.anchorPhase = 'falling';
+    const rec = this.bodyToTile.get(target);
+    if (!rec || rec.phase !== 'bound') return;
+    transitionPhase(rec, 'falling', 'collisionWake');
     rec.floorDwellMs = 0;
     rec.offAnchorStillMs = 0;
     rec.airStuckMs = 0;
@@ -1083,13 +701,13 @@ export class BoxesLayer {
   private applyFloorContactFromPair(pair: IEventCollision<Engine>['pairs'][number]): void {
     const a = pair.bodyA;
     const b = pair.bodyB;
-    if (a.label === FLOOR_LABEL && b.label === LETTER_LABEL && !b.isStatic) {
-      const r = this.letterRecords.find((rec) => rec.body === b);
+    if (a.label === FLOOR_LABEL && b.label === TILE_LABEL && !b.isStatic) {
+      const r = this.bodyToTile.get(b);
       if (r) r.touchingFloor = true;
       return;
     }
-    if (b.label === FLOOR_LABEL && a.label === LETTER_LABEL && !a.isStatic) {
-      const r = this.letterRecords.find((rec) => rec.body === a);
+    if (b.label === FLOOR_LABEL && a.label === TILE_LABEL && !a.isStatic) {
+      const r = this.bodyToTile.get(a);
       if (r) r.touchingFloor = true;
     }
   }
@@ -1097,7 +715,7 @@ export class BoxesLayer {
   private applyLetterSupportFromPair(pair: IEventCollision<Engine>['pairs'][number]): void {
     const a = pair.bodyA;
     const b = pair.bodyB;
-    if (a.label !== LETTER_LABEL || b.label !== LETTER_LABEL) return;
+    if (a.label !== TILE_LABEL || b.label !== TILE_LABEL) return;
     const dyBetween = b.position.y - a.position.y;
     const upper = dyBetween >= 0 ? a : b;
     const lower = upper === a ? b : a;
@@ -1105,12 +723,12 @@ export class BoxesLayer {
     const dy = lower.position.y - upper.position.y;
     if (dy < SUPPORT_DY_MIN) return;
     if (pair.collision.depth <= pair.slop + 0.02) return;
-    const rec = this.letterRecords.find((r) => r.body === upper);
+    const rec = this.bodyToTile.get(upper);
     if (rec) rec.touchingSupport = true;
   }
 
   private clearDynamicFloorContact(): void {
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       if (!r.body.isStatic) {
         r.touchingFloor = false;
         r.touchingSupport = false;
@@ -1123,7 +741,7 @@ export class BoxesLayer {
    * `bound`, ensures the anchor tether. Used by drag-end, glide finish, and quiet-stuck shortcuts so
    * tiles always remain dynamic and so the pointer field can keep pushing them on the next press.
    */
-  private settleLetterAtAnchor(r: LetterRecord): void {
+  private settleLetterAtAnchor(r: TileRecord): void {
     const b = r.body;
     this.syncRecordAnchorToLayout(r);
     if (b.isStatic) Body.setStatic(b, false);
@@ -1133,7 +751,7 @@ export class BoxesLayer {
     Body.setVelocity(b, { x: 0, y: 0 });
     Body.setAngularVelocity(b, 0);
     Sleeping.set(b, false);
-    r.anchorPhase = 'bound';
+    transitionPhase(r, 'bound', 'settleLetterAtAnchor');
     r.floorDwellMs = 0;
     r.touchingFloor = false;
     r.touchingSupport = false;
@@ -1147,10 +765,10 @@ export class BoxesLayer {
   }
 
   /** Same release span as {@link tryReleaseFromMotion}; use from drag-end so behavior cannot drift. */
-  private transitionBoundToFallingFromReleaseBand(rec: LetterRecord): void {
+  private transitionBoundToFallingFromReleaseBand(rec: TileRecord): void {
     rec.latticeGlide = false;
     this.resetGlideProgress(rec);
-    rec.anchorPhase = 'falling';
+    transitionPhase(rec, 'falling', 'dragReleaseFalling');
     rec.floorDwellMs = 0;
     rec.offAnchorStillMs = 0;
     rec.airStuckMs = 0;
@@ -1158,9 +776,9 @@ export class BoxesLayer {
     this.removeAnchorTether(rec);
   }
 
-  private tryReleaseFromMotion(rec: LetterRecord, dragged: Body | null | undefined): void {
+  private tryReleaseFromMotion(rec: TileRecord, dragged: Body | null | undefined): void {
     const b = rec.body;
-    if (rec.anchorPhase !== 'bound' || b.isStatic || dragged === b) return;
+    if (rec.phase !== 'bound' || b.isStatic || dragged === b) return;
 
     const dx = rec.anchorX - b.position.x;
     const dy = rec.anchorY - b.position.y;
@@ -1176,7 +794,7 @@ export class BoxesLayer {
    * Covers `bound` piles and `falling` floor rest that never enter return on their own.
    */
   private tryForceReassembleIfStill(
-    r: LetterRecord,
+    r: TileRecord,
     deltaMs: number,
     dragged: Body | null | undefined,
   ): void {
@@ -1185,16 +803,16 @@ export class BoxesLayer {
       r.offAnchorStillMs = 0;
       return;
     }
-    if (this.isDraggingBox() && r.anchorPhase === 'bound') {
+    if (this.isDraggingBox() && r.phase === 'bound') {
       r.offAnchorStillMs = 0;
       return;
     }
-    if (r.anchorPhase === 'returning') {
+    if (r.phase === 'returning') {
       r.offAnchorStillMs = 0;
       return;
     }
 
-    if (r.anchorPhase === 'falling') {
+    if (r.phase === 'falling') {
       // Only the actual canvas FLOOR counts as "rested"; resting on top of another tile must NOT
       // trigger the homing return (otherwise stacked piles get yanked back to the lattice).
       const grounded = r.touchingFloor;
@@ -1202,7 +820,7 @@ export class BoxesLayer {
         r.offAnchorStillMs = 0;
         return;
       }
-    } else if (r.anchorPhase === 'bound') {
+    } else if (r.phase === 'bound') {
       if (b.isStatic) {
         r.offAnchorStillMs = 0;
         return;
@@ -1223,7 +841,7 @@ export class BoxesLayer {
     const spd = Math.hypot(b.velocity.x, b.velocity.y);
     const ang = Math.abs(b.angularVelocity);
     const spdLimit =
-      r.anchorPhase === 'falling' ? REST_SPEED_MAX : REASSEMBLY_SPEED_MAX_BOUND;
+      r.phase === 'falling' ? REST_SPEED_MAX : REASSEMBLY_SPEED_MAX_BOUND;
     if (spd > spdLimit || ang > REASSEMBLY_ANG_MAX) {
       r.offAnchorStillMs = 0;
       return;
@@ -1243,16 +861,16 @@ export class BoxesLayer {
 
   /**
    * `bound` tile under anchor tether (or already very near its slot): if the pile blocks motion and
-   * distance to the anchor barely changes while speeds are low, snap the tile to its lattice cell
-   * visually (locked static) — avoids indefinite tether deadlock.
+   * distance to the anchor barely changes while speeds are low, snap the tile to its lattice cell �
+   * avoids indefinite tether deadlock.
    */
   private maybeForceSnapBoundWhenStuck(
-    r: LetterRecord,
+    r: TileRecord,
     deltaMs: number,
     dragged: Body | null | undefined,
   ): void {
     const b = r.body;
-    if (r.anchorPhase !== 'bound' || b.isStatic || r.latticeGlide || dragged === b) {
+    if (r.phase !== 'bound' || b.isStatic || r.latticeGlide || dragged === b) {
       r.boundStuckMs = 0;
       r.boundLowMotionMs = 0;
       r.boundStuckLastDist = -1;
@@ -1313,15 +931,15 @@ export class BoxesLayer {
   }
 
   /**
-   * Simple stuck completion: quiet body, not at anchor, already near the mosaic → lock to lattice cell.
+   * Simple stuck completion: quiet body, not at anchor, already near the mosaic ? lock to lattice cell.
    */
   private maybeSettleBoundWhenQuietOffHome(
-    r: LetterRecord,
+    r: TileRecord,
     deltaMs: number,
     dragged: Body | null | undefined,
   ): void {
     const b = r.body;
-    if (r.anchorPhase !== 'bound' || b.isStatic || r.latticeGlide || dragged === b) {
+    if (r.phase !== 'bound' || b.isStatic || r.latticeGlide || dragged === b) {
       r.quietOffHomeMs = 0;
       return;
     }
@@ -1359,14 +977,14 @@ export class BoxesLayer {
     this.settleLetterAtAnchor(r);
   }
 
-  /** Long, nearly still hover at anchor under tether → lock grid (slow final commit). */
+  /** Long, nearly still hover at anchor under tether ? lock grid (slow final commit). */
   private maybeCommitBoundToLocked(
-    r: LetterRecord,
+    r: TileRecord,
     deltaMs: number,
     dragged: Body | null | undefined,
   ): void {
     const b = r.body;
-    if (r.anchorPhase !== 'bound' || b.isStatic || dragged === b) {
+    if (r.phase !== 'bound' || b.isStatic || dragged === b) {
       r.tetherSettleMs = 0;
       return;
     }
@@ -1389,7 +1007,7 @@ export class BoxesLayer {
     this.settleLetterAtAnchor(r);
   }
 
-  private cancelLatticeGlide(r: LetterRecord): void {
+  private cancelLatticeGlide(r: TileRecord): void {
     if (!r.latticeGlide) return;
     const b = r.body;
     r.latticeGlide = false;
@@ -1398,20 +1016,20 @@ export class BoxesLayer {
     Body.setStatic(b, false);
     Body.setVelocity(b, { x: 0, y: 0 });
     Body.setAngularVelocity(b, 0);
-    if (r.anchorPhase === 'bound') this.ensureAnchorTether(r);
+    if (r.phase === 'bound') this.ensureAnchorTether(r);
     this.resetGlideProgress(r);
   }
 
   /**
-   * Glide is a kinematic position lerp. Leaving letter–letter collisions on means `Body.setPosition`
+   * Glide is a kinematic position lerp. Leaving letter�letter collisions on means `Body.setPosition`
    * can drive the glider INTO a neighbor, and the next-frame collision solver produces a large
    * separation impulse (that's the "jerk" the user reported). Switch to walls-only for the duration
    * of the glide; full collisions are restored in {@link settleLetterAtAnchor} / {@link cancelLatticeGlide}.
    *
    * Captures the body's current velocity (in CSS px / ms) BEFORE zeroing so the cubic Hermite curve
-   * can blend it into the start of the return — preserving momentum across the state change.
+   * can blend it into the start of the return � preserving momentum across the state change.
    */
-  private enterLatticeGlide(r: LetterRecord): void {
+  private enterLatticeGlide(r: TileRecord): void {
     const b = r.body;
     this.removeAnchorTether(r);
     b.collisionFilter = letterFilterWallsOnly();
@@ -1430,10 +1048,10 @@ export class BoxesLayer {
     r.latticeGlide = true;
   }
 
-  private maybeBeginLatticeGlide(r: LetterRecord, dragged: Body | null | undefined): void {
+  private maybeBeginLatticeGlide(r: TileRecord, dragged: Body | null | undefined): void {
     const b = r.body;
-    if (r.latticeGlide || r.anchorPhase !== 'bound' || b.isStatic || dragged === b) return;
-    // If the field has touched this tile recently, do NOT re-enter the kinematic glide — it would
+    if (r.latticeGlide || r.phase !== 'bound' || b.isStatic || dragged === b) return;
+    // If the field has touched this tile recently, do NOT re-enter the kinematic glide � it would
     // override applyForce by snapping the tile back to anchor each tick. Tiles on the leading edge of
     // the mosaic sat right on their anchor and got re-glided every frame, hiding the radial push.
     if (this.boxHomingEase(r) < 1) return;
@@ -1444,14 +1062,14 @@ export class BoxesLayer {
     this.enterLatticeGlide(r);
   }
 
-  private finishLatticeGlide(r: LetterRecord): void {
+  private finishLatticeGlide(r: TileRecord): void {
     r.latticeGlide = false;
     this.settleLetterAtAnchor(r);
   }
 
   /** Lerp toward anchor before Matter resolves contacts (reduces jitter vs post-step teleport). */
   private applyLatticeGlideBeforePhysics(
-    r: LetterRecord,
+    r: TileRecord,
     dragged: Body | null | undefined,
     deltaMs: number,
   ): void {
@@ -1460,7 +1078,7 @@ export class BoxesLayer {
       this.cancelLatticeGlide(r);
       return;
     }
-    if (r.anchorPhase !== 'bound') {
+    if (r.phase !== 'bound') {
       this.cancelLatticeGlide(r);
       return;
     }
@@ -1492,55 +1110,34 @@ export class BoxesLayer {
       const startDist = Math.hypot(ax - b.position.x, ay - b.position.y) || 1;
       const ux = (ax - r.latticeGlideStartX) / startDist;
       const uy = (ay - r.latticeGlideStartY) / startDist;
-      // Outward speed (px/ms): positive when velocity points away from the anchor. The cubic
-      // Hermite naturally "overshoots" by ~ v0·D/6 in that case, so we extend duration enough to
-      // accommodate that travel without it visibly compressing the controlled return part.
+      // Outward speed (px/ms): positive when velocity points away from the anchor.
       const outwardSpeed = Math.max(0, -(r.latticeGlideStartVx * ux + r.latticeGlideStartVy * uy));
-      const overshootBudgetPx = outwardSpeed * 280;
-      // Spawn vs post-release use independently tunable target speeds and duration bounds.
-      const speed = r.latticeGlideIsSpawn
-        ? LATTICE_GLIDE_SPAWN_TARGET_SPEED_PX_PER_S
-        : LATTICE_GLIDE_TARGET_SPEED_PX_PER_S;
-      const minDur = r.latticeGlideIsSpawn
-        ? LATTICE_GLIDE_SPAWN_MIN_DURATION_MS
-        : LATTICE_GLIDE_MIN_DURATION_MS;
-      const maxDur = r.latticeGlideIsSpawn
-        ? LATTICE_GLIDE_SPAWN_MAX_DURATION_MS
-        : LATTICE_GLIDE_MAX_DURATION_MS;
-      const desired = ((startDist + overshootBudgetPx) / speed) * 1000;
-      r.latticeGlideDurationMs = Math.min(maxDur, Math.max(minDur, desired));
+      r.latticeGlideDurationMs = chooseGlideDurationMs(
+        startDist,
+        outwardSpeed,
+        r.latticeGlideIsSpawn
+      );
     }
 
     r.latticeGlideElapsedMs += deltaMs;
-    const sx = r.latticeGlideStartX;
-    const sy = r.latticeGlideStartY;
     const D = r.latticeGlideDurationMs;
     const t = Math.max(0, Math.min(1, r.latticeGlideElapsedMs / D));
-    // Cubic Hermite p(t) = h00·p0 + h10·m0 + h01·p1 + h11·m1 with end velocity v1 = 0.
-    // m0 is the start tangent in t-space: m0 = v0_px_per_ms · D. With v0 = 0 (spawn case) this
-    // reduces exactly to the smoothstep 3t²−2t³ — so spawn behavior is unchanged. With outward v0
-    // (post-coast field push) the curve preserves the body's existing velocity, decelerates it
-    // smoothly, reverses, and lands at the anchor with v=0. No velocity discontinuity → no jerk.
-    const tt = t * t;
-    const ttt = tt * t;
-    const h00 = 2 * ttt - 3 * tt + 1;
-    const h10 = ttt - 2 * tt + t;
-    const h01 = -2 * ttt + 3 * tt;
-    const m0x = r.latticeGlideStartVx * D;
-    const m0y = r.latticeGlideStartVy * D;
-    const x = h00 * sx + h10 * m0x + h01 * ax;
-    const y = h00 * sy + h10 * m0y + h01 * ay;
-    Body.setPosition(b, { x, y });
-    // Decay angle on a matching ease-out (smoothstep portion only is sufficient for visuals).
-    const e = h01;
-    Body.setAngle(b, b.angle * (1 - e * 0.95));
+    const out = evaluateGlide(
+      t,
+      { x: r.latticeGlideStartX, y: r.latticeGlideStartY },
+      { x: ax, y: ay },
+      { vx: r.latticeGlideStartVx, vy: r.latticeGlideStartVy },
+      D
+    );
+    Body.setPosition(b, { x: out.x, y: out.y });
+    Body.setAngle(b, b.angle * (1 - out.easedAngleDecay * 0.95));
     Body.setVelocity(b, { x: 0, y: 0 });
     Body.setAngularVelocity(b, 0);
   }
 
-  /** After physics: snap / stuck-timeout — uses post-collision distance. */
+  /** After physics: snap / stuck-timeout � uses post-collision distance. */
   private finalizeLatticeGlideAfterPhysics(
-    r: LetterRecord,
+    r: TileRecord,
     dragged: Body | null | undefined,
     _deltaMs: number,
   ): void {
@@ -1550,7 +1147,7 @@ export class BoxesLayer {
       this.cancelLatticeGlide(r);
       return;
     }
-    if (r.anchorPhase !== 'bound') {
+    if (r.phase !== 'bound') {
       this.cancelLatticeGlide(r);
       return;
     }
@@ -1571,9 +1168,8 @@ export class BoxesLayer {
       return;
     }
     // `applyLatticeGlideBeforePhysics` drives the curve and advances `latticeGlideElapsedMs`. We
-    // finish the glide either by curve completion (`elapsed >= duration`) or by the absolute MAX_MS
-    // safety net.
-    r.latticeGlideLastDist = dist;
+    // finish the glide either by curve completion (`elapsed >= duration`) or by the absolute
+    // MAX_MS safety net.
     const segmentDone =
       r.latticeGlideDurationMs > 0 && r.latticeGlideElapsedMs >= r.latticeGlideDurationMs;
     if (segmentDone || r.latticeGlideElapsedMs >= LATTICE_GLIDE_MAX_MS) {
@@ -1582,9 +1178,9 @@ export class BoxesLayer {
     }
   }
 
-  private beginReturningPhase(r: LetterRecord): void {
+  private beginReturningPhase(r: TileRecord): void {
     const b = r.body;
-    r.anchorPhase = 'returning';
+    transitionPhase(r, 'returning', 'beginReturningPhase');
     r.floorDwellMs = 0;
     r.offAnchorStillMs = 0;
     r.airStuckMs = 0;
@@ -1599,15 +1195,15 @@ export class BoxesLayer {
   }
 
   /** Kinematic homing has brought the tile inside the outer handoff zone; continue with visual glide (no tether). */
-  private transitionReturningToBound(r: LetterRecord): void {
+  private transitionReturningToBound(r: TileRecord): void {
     const b = r.body;
-    if (r.anchorPhase !== 'returning') return;
+    if (r.phase !== 'returning') return;
     this.removeAnchorTether(r);
     this.syncRecordAnchorToLayout(r);
     Body.setAngle(b, 0);
     Body.setVelocity(b, { x: 0, y: 0 });
     Body.setAngularVelocity(b, 0);
-    r.anchorPhase = 'bound';
+    transitionPhase(r, 'bound', 'returningHandoff');
     r.floorDwellMs = 0;
     r.touchingFloor = false;
     r.touchingSupport = false;
@@ -1618,7 +1214,7 @@ export class BoxesLayer {
   }
 
   /**
-   * `returning` uses `letterFilterWallsOnly` so letters don’t collide with the pile.
+   * `returning` uses `letterFilterWallsOnly` so letters don�t collide with the pile.
    */
   private stepReturningHoming(deltaMs: number): void {
     const dragged = this.mouseGrabLetterBody();
@@ -1633,8 +1229,8 @@ export class BoxesLayer {
     );
     const slowBand = Math.max(tetherZone * 2.1, releaseDist * HOMING_SLOW_OUTER_FRAC);
 
-    for (const r of this.letterRecords) {
-      if (r.anchorPhase !== 'returning') continue;
+    for (const r of this.tileRecords) {
+      if (r.phase !== 'returning') continue;
       const b = r.body;
       if (dragged === b) continue;
 
@@ -1672,10 +1268,10 @@ export class BoxesLayer {
   private updateAnchorMotionAfterStep(deltaMs: number): void {
     const dragged = this.mouseGrabLetterBody();
 
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       const b = r.body;
 
-      if (r.anchorPhase === 'falling') {
+      if (r.phase === 'falling') {
         const spd = Math.hypot(b.velocity.x, b.velocity.y);
         const slowEnough = spd < REST_SPEED_MAX;
         const onPhysicsFloor = r.touchingFloor;
@@ -1692,7 +1288,7 @@ export class BoxesLayer {
         }
 
         if (!b.isStatic && !r.touchingFloor) {
-          /** Letter-on-letter rest sets `touchingSupport`; that is not “air”, so do not snap homing via air-stuck. */
+          /** Letter-on-letter rest sets `touchingSupport`; that is not �air�, so do not snap homing via air-stuck. */
           if (r.touchingSupport) {
             r.airStuckMs = 0;
           } else {
@@ -1719,7 +1315,7 @@ export class BoxesLayer {
 
       this.tryReleaseFromMotion(r, dragged);
       this.tryForceReassembleIfStill(r, deltaMs, dragged);
-      if (r.anchorPhase === 'bound' && !r.body.isStatic && dragged !== r.body) {
+      if (r.phase === 'bound' && !r.body.isStatic && dragged !== r.body) {
         this.maybeForceSnapBoundWhenStuck(r, deltaMs, dragged);
         this.maybeSettleBoundWhenQuietOffHome(r, deltaMs, dragged);
         this.maybeBeginLatticeGlide(r, dragged);
@@ -1738,7 +1334,7 @@ export class BoxesLayer {
     const half = this.cellSizeCss * 0.5;
     const pad = BOUNDS_PAD_CSS;
     let minCx = half + pad;
-    let minCy = half + pad;
+    const minCy = half + pad;
     let maxCx = css.cw - half - pad;
     if (minCx > maxCx) {
       const mid = css.cw * 0.5;
@@ -1746,9 +1342,9 @@ export class BoxesLayer {
       maxCx = mid;
     }
 
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       const b = r.body;
-      if (b.isStatic || r.anchorPhase === 'bound') continue;
+      if (b.isStatic || r.phase === 'bound') continue;
 
       let { x, y } = b.position;
       const vx = b.velocity.x;
@@ -1779,7 +1375,7 @@ export class BoxesLayer {
   }
 
   private recoverBrokenBodies(): void {
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       const b = r.body;
       const { x, y } = b.position;
       if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(b.angle)) {
@@ -1791,7 +1387,7 @@ export class BoxesLayer {
         Body.setAngle(b, 0);
         Body.setVelocity(b, { x: 0, y: 0 });
         Body.setAngularVelocity(b, 0);
-        r.anchorPhase = 'bound';
+        transitionPhase(r, 'bound', 'recoverBrokenBodies');
         r.floorDwellMs = 0;
         r.touchingFloor = false;
         r.touchingSupport = false;
@@ -1812,10 +1408,11 @@ export class BoxesLayer {
    * Pixi cell and spawn a fresh **dynamic** tile at the anchor with its tether attached. Last-resort
    * recovery for cells that genuinely got stuck off-anchor; never makes the body static.
    */
-  private respawnLetterAtAnchor(r: LetterRecord): void {
+  private respawnLetterAtAnchor(r: TileRecord): void {
     this.removeAnchorTether(r);
     const oldBody = r.body;
     this.releaseMouseConstraintIfDraggingBody(oldBody);
+    this.bodyToTile.delete(oldBody);
 
     const gIdx = this.root.getChildIndex(r.g);
     Composite.remove(this.engine.world, oldBody);
@@ -1825,13 +1422,7 @@ export class BoxesLayer {
     const ax = r.anchorX;
     const ay = r.anchorY;
 
-    const body = Bodies.rectangle(ax, ay, this.cellSizeCss, this.cellSizeCss, {
-      isStatic: false,
-      friction: 0.5,
-      frictionAir: 0.014,
-      restitution: 0.32,
-      density: LETTER_BODY_DENSITY,
-      label: LETTER_LABEL,
+    const body = createTileBody({ x: ax, y: ay }, r.sizeCss, {
       collisionFilter: letterFilterFull(),
     });
     Composite.add(this.engine.world, body);
@@ -1842,7 +1433,8 @@ export class BoxesLayer {
 
     r.body = body;
     r.g = g;
-    r.anchorPhase = 'bound';
+    this.bodyToTile.set(body, r);
+    transitionPhase(r, 'bound', 'respawnTileAtAnchor');
     r.floorDwellMs = 0;
     r.touchingFloor = false;
     r.touchingSupport = false;
@@ -1857,7 +1449,7 @@ export class BoxesLayer {
   }
 
   private maybeRespawnLetterIfOffAnchorTooLong(
-    r: LetterRecord,
+    r: TileRecord,
     deltaMs: number,
     dragged: Body | null | undefined,
   ): void {
@@ -1893,39 +1485,23 @@ export class BoxesLayer {
       this.syncMatterMouseToCanvasCss(this.lastPointerCanvasCss);
     }
     this.syncMouseConstraintPickCollisionFilter();
-    this.clearLetterMouseGrabIfDisabled();
     this.suppressMisalignedLetterMouseGrab();
     this.updateBoundTetherStrength();
     this.applyPointerFieldBeforeStep(dt);
     this.boundAngularDampBeforeStep();
     this.clearDynamicFloorContact();
     const draggedPre = this.mouseGrabLetterBody();
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       if (r.latticeGlide) this.applyLatticeGlideBeforePhysics(r, draggedPre, dt);
     }
     Engine.update(this.engine, dt);
-    this.clearLetterMouseGrabIfDisabled();
     this.suppressMisalignedLetterMouseGrab();
     this.updateAnchorMotionAfterStep(dt);
     this.stepReturningHoming(dt);
     this.enforceLetterBounds(getPhysicsViewport(this.app));
     this.recoverBrokenBodies();
 
-    const { sx, sy } = cssPixelsToPixiFactors(this.app);
-    const side = this.cellSizeCss;
-    for (const r of this.letterRecords) {
-      const b = r.body;
-      const g = r.g;
-      g.rotation = b.angle;
-      const px = Number.isFinite(b.position.x) ? b.position.x : r.anchorX;
-      const py = Number.isFinite(b.position.y) ? b.position.y : r.anchorY;
-      g.position.set(px * sx, py * sy);
-      g.clear();
-      g.rect(-side * 0.5 * sx, -side * 0.5 * sy, side * sx, side * sy);
-      const fillAlpha = b.isSleeping ? 0.78 : 0.92;
-      g.fill({ color: 0x4c5d9f, alpha: fillAlpha });
-      g.stroke({ width: Math.max(1, sx), color: 0x1a2033, alpha: 0.7 });
-    }
+    drawTiles(this.tileRecords, cssPixelsToPixiFactors(this.app));
   }
 
   dispose() {
@@ -1943,14 +1519,14 @@ export class BoxesLayer {
     Events.off(this.mouseConstraint, 'enddrag', this.onDragEnd);
     Events.off(this.engine, 'collisionStart', this.onCollisionStart);
     Events.off(this.engine, 'collisionActive', this.onCollisionActive);
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       this.removeAnchorTether(r);
     }
     Composite.remove(this.engine.world, this.mouseConstraint);
     Composite.clear(this.engine.world, false);
     Engine.clear(this.engine);
-    this.letterRecords.forEach((r) => r.g.destroy());
-    this.letterRecords = [];
+    this.tileRecords.forEach((r) => r.g.destroy());
+    this.tileRecords = [];
     this.walls = [];
     this.root.destroy({ children: true });
   }
@@ -2036,7 +1612,7 @@ export class BoxesLayer {
     this.walls.push(floor, ceil, left, right);
     Composite.add(this.engine.world, this.walls);
 
-    if (this.letterRecords.length === 0) {
+    if (this.tileRecords.length === 0) {
       this.spawnLetterGrid(css);
     } else if (!this.layoutFrozen) {
       this.rebuildLetterMosaic(css);
@@ -2046,12 +1622,13 @@ export class BoxesLayer {
   }
 
   private clearLetterBodies() {
-    for (const r of this.letterRecords) {
+    for (const r of this.tileRecords) {
       this.removeAnchorTether(r);
+      this.bodyToTile.delete(r.body);
       Composite.remove(this.engine.world, r.body);
       r.g.destroy();
     }
-    this.letterRecords = [];
+    this.tileRecords = [];
   }
 
   private rebuildLetterMosaic(css: { cw: number; ch: number }) {
@@ -2060,13 +1637,13 @@ export class BoxesLayer {
   }
 
   private refreshAnchorsFromLayout(css: { cw: number; ch: number }) {
-    const layout = layoutSourcehiveInViewport(css.cw, css.ch, LAYOUT_FRAC_Y);
-    this.fillAnchorCacheFromLayout(layout);
-    for (const r of this.letterRecords) {
-      const p = this.anchorLayoutCache.get(`${r.gx},${r.gy}`);
+    this.fillAnchorCacheFromLayout(this.computeLayout(css.cw, css.ch));
+    for (const r of this.tileRecords) {
+      const p = this.anchorLayoutCache.get(r.id);
       if (!p) continue;
       r.anchorX = p.x;
       r.anchorY = p.y;
+      r.sizeCss = p.sizeCss;
       if (r.anchorTether) {
         r.anchorTether.pointA.x = p.x;
         r.anchorTether.pointA.y = p.y;
@@ -2076,26 +1653,21 @@ export class BoxesLayer {
   }
 
   private spawnLetterGrid(css: { cw: number; ch: number }) {
-    const layout = layoutSourcehiveInViewport(css.cw, css.ch, LAYOUT_FRAC_Y);
+    const layout = this.computeLayout(css.cw, css.ch);
     this.fillAnchorCacheFromLayout(layout);
-    let order = 0;
-    // Per-tile randomized scatter inside the lattice-glide range, then the SAME `applyLatticeGlideBeforePhysics`
-    // that does the final snap lerps each tile onto its anchor. Spawn distance must stay below
-    // `LATTICE_GLIDE_ABORT_MULT * cellSizeCss` (~7×) or the glide aborts before completing.
-    const scatterMin = this.cellSizeCss * 1.5;
-    const scatterMax = this.cellSizeCss * 5.5;
+    // Per-tile randomized scatter inside the lattice-glide range, then the SAME
+    // `applyLatticeGlideBeforePhysics` that does the final snap lerps each tile onto its anchor.
+    // Spawn distance must stay below `LATTICE_GLIDE_ABORT_MULT * tile.sizeCss` (~7×) or the
+    // glide aborts before completing.
     for (const t of layout.tiles) {
+      const sizeCss = t.sizeCss;
+      const scatterMin = sizeCss * 1.5;
+      const scatterMax = sizeCss * 5.5;
       const ang = Math.random() * Math.PI * 2;
       const dist = scatterMin + Math.random() * (scatterMax - scatterMin);
       const sx = t.x + Math.cos(ang) * dist;
       const sy = t.y + Math.sin(ang) * dist;
-      const body = Bodies.rectangle(sx, sy, this.cellSizeCss, this.cellSizeCss, {
-        isStatic: false,
-        friction: 0.5,
-        frictionAir: 0.014,
-        restitution: 0.32,
-        density: LETTER_BODY_DENSITY,
-        label: LETTER_LABEL,
+      const body = createTileBody({ x: sx, y: sy }, sizeCss, {
         collisionFilter: letterFilterWallsOnly(),
       });
       Body.setVelocity(body, { x: 0, y: 0 });
@@ -2104,15 +1676,14 @@ export class BoxesLayer {
 
       const g = new Graphics();
       this.root.addChild(g);
-      const rec: LetterRecord = {
+      const rec: TileRecord = {
+        id: t.id,
+        sizeCss,
         body,
         g,
-        order,
-        gx: t.gx,
-        gy: t.gy,
         anchorX: t.x,
         anchorY: t.y,
-        anchorPhase: 'bound',
+        phase: 'bound',
         floorDwellMs: 0,
         touchingFloor: false,
         touchingSupport: false,
@@ -2121,9 +1692,6 @@ export class BoxesLayer {
         tetherSettleMs: 0,
         lastBoxInteractPerf: -1,
         anchorTether: null,
-        latticeGlideStuckMs: 0,
-        latticeGlideLowMotionMs: 0,
-        latticeGlideLastDist: -1,
         latticeGlideElapsedMs: 0,
         latticeGlideStartX: sx,
         latticeGlideStartY: sy,
@@ -2138,8 +1706,8 @@ export class BoxesLayer {
         boundStuckLastDist: -1,
         latticeGlide: true,
       };
-      this.letterRecords.push(rec);
-      order += 1;
+      this.tileRecords.push(rec);
+      this.bodyToTile.set(body, rec);
     }
     this.layoutFrozen = true;
   }

@@ -13,6 +13,8 @@ function reqHost(selector: string): HTMLElement {
   return el;
 }
 
+document.documentElement.classList.add('js-loaded');
+
 const uiMount = reqHost('#ui-root');
 const pixMount = reqHost('#pixi-root');
 const staticFallback = reqHost('#static-fallback');
@@ -23,7 +25,7 @@ bindWaitlist(uiMount);
 let disposeSimulation: (() => Promise<void>) | undefined;
 
 function applyReducedUi(enabled: boolean) {
-  document.body.dataset.reducedMotion = enabled ? 'true' : 'false';
+  document.body.classList.toggle('reduced-motion', enabled);
   pixMount.hidden = enabled;
   staticFallback.hidden = !enabled;
 }
@@ -43,7 +45,6 @@ async function stopSimulation() {
   disposeSimulation = undefined;
 }
 
-document.body.dataset.reducedMotion = mq?.matches === true ? 'true' : 'false';
 applyReducedUi(mq?.matches === true);
 
 if (!mq?.matches) {

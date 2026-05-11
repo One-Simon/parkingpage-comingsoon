@@ -35,9 +35,13 @@ export async function bootstrapSimulation(pixHost: HTMLElement): Promise<() => P
   };
   window.addEventListener('resize', onViewportResize, { passive: true });
 
+  /** Single dt cap shared between physics and dot-field; covers occasional 30 Hz ticks while
+   *  preventing tab-switch backlogs (which can deliver multi-second `deltaMS` spikes). */
+  const DT_CAP_MS = 32;
+
   const tickerCb = (): void => {
     if (stopped) return;
-    const dtMs = Math.min(app.ticker.deltaMS, 32);
+    const dtMs = Math.min(app.ticker.deltaMS, DT_CAP_MS);
     boxesLayer.update(dtMs);
     dotField.tick(
       dtMs / 1000,

@@ -32,29 +32,9 @@ export function mountOverlay(root: HTMLElement) {
     </section>
     <div class="scrim scrim-edge" aria-hidden="true"></div>
   `.trim();
-
-  bindFocusTrapShortcuts(root.querySelector('#waitlist-form'));
 }
 
 function escapeHtml(unsafe: string) {
   const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as const;
   return unsafe.replace(/[&<>"']/g, (ch) => map[ch as keyof typeof map]);
-}
-
-function bindFocusTrapShortcuts(formEl: Element | null) {
-  const form = formEl as HTMLFormElement | null;
-  if (!(form instanceof HTMLFormElement)) return;
-  form.addEventListener(
-    'keydown',
-    (e) => {
-      if (!(e.target instanceof HTMLElement)) return;
-      if (
-        ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(e.target.tagName) ||
-        e.target.isContentEditable
-      ) {
-        e.stopPropagation();
-      }
-    },
-    false
-  );
 }

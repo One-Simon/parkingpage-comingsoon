@@ -1,11 +1,11 @@
 ﻿import { Container, Graphics } from 'pixi.js';
 import type { PointerSample } from '../pointerBridge.ts';
 
-export const DOT_COUNT = 5200;
-export const DOT_RADIUS = 1.2;
-export const EDGE_MARGIN = 10;
+const DOT_COUNT = 5200;
+const DOT_RADIUS = 1.2;
+const EDGE_MARGIN = 10;
 
-export interface DotFieldTuning {
+interface DotFieldTuning {
   repulseRadius: number;
   repulseStrength: number;
   returnSpring: number;
@@ -15,7 +15,7 @@ export interface DotFieldTuning {
   trailFalloff: number;
 }
 
-export const DEFAULT_DOT_TUNING: DotFieldTuning = Object.freeze({
+const DEFAULT_DOT_TUNING: DotFieldTuning = Object.freeze({
   repulseRadius: 140,
   repulseStrength: 9500,
   returnSpring: 42,
@@ -43,8 +43,17 @@ export class DotField {
   private readonly dots: Dot[];
   private readonly gfxBase: Graphics;
   private readonly gfxAccent: Graphics;
-  private trailXs: number[] = [];
-  private trailYs: number[] = [];
+  /**
+   * Pointer trail held in three preallocated number rings sized by `trailLength`. The head index
+   * advances modulo capacity; old samples are overwritten in place. Replaces the old per-frame
+   * `Array.push` + `Array.shift` (which was O(n) and produced one allocation per pointer move).
+   */
+  private trailX: Float64Array;
+  private trailY: Float64Array;
+  private trailW: Float64Array;
+  private trailHead = 0;
+  /** Number of valid samples in the ring (≤ capacity); resets to 0 when the pointer leaves. */
+  private trailLen = 0;
   private lastPixiW: number;
   private lastPixiH: number;
 
@@ -58,23 +67,31 @@ export class DotField {
     this.container.addChild(this.gfxBase);
     this.container.addChild(this.gfxAccent);
 
+    const cap = Math.max(1, Math.floor(tuning.trailLength));
+    this.trailX = new Float64Array(cap);
+    this.trailY = new Float64Array(cap);
+    this.trailW = new Float64Array(cap);
+
     this.dots = placeDotsOnGrid(pixiW, pixiH, DOT_COUNT);
     this.redraw();
   }
 
+  private trailCapacity(): number {
+    return this.trailX.length;
+  }
+
   private pushTrail(px: number, py: number): void {
-    const cap = Math.max(1, Math.floor(this.tuning.trailLength));
-    this.trailXs.push(px);
-    this.trailYs.push(py);
-    while (this.trailXs.length > cap) {
-      this.trailXs.shift();
-      this.trailYs.shift();
-    }
+    const cap = this.trailCapacity();
+    this.trailX[this.trailHead] = px;
+    this.trailY[this.trailHead] = py;
+    this.trailHead = (this.trailHead + 1) % cap;
+    if (this.trailLen < cap) this.trailLen++;
   }
 
   tick(dtSeconds: number, latestPointer: PointerSample, pixiW: number, pixiH: number): void {
     if (dtSeconds <= 0) return;
-    const dt = Math.min(dtSeconds, 1 / 30);
+    // dt is already clamped by the caller (`bootstrapSimulation` enforces a single 32ms cap).
+    const dt = dtSeconds;
     const t = this.tuning;
     const minX = EDGE_MARGIN + DOT_RADIUS;
     const maxX = pixiW - EDGE_MARGIN - DOT_RADIUS;
@@ -83,35 +100,44 @@ export class DotField {
     const r = t.repulseRadius;
     const r2 = r * r;
 
-    let pointerSamples: Array<{ px: number; py: number; w: number }> | null = null;
+    let trailN = 0;
+    let oldestIdx = 0;
+    let cap = this.trailCapacity();
     if (latestPointer.x >= 0 && latestPointer.y >= 0) {
       this.pushTrail(latestPointer.x, latestPointer.y);
-      const n = this.trailXs.length;
-      pointerSamples = [];
+      cap = this.trailCapacity();
+      trailN = this.trailLen;
+      oldestIdx = (this.trailHead - trailN + cap) % cap;
+      // Precompute decay weights into the same ring (writes only to indices we won't read in
+      // the dot loop because the dot loop reads via oldestIdx + i mod cap; weights are read at
+      // those exact indices). To keep it simple we use a small parallel weight ring.
       const fall = t.trailFalloff;
-      for (let i = 0; i < n; i++) {
-        const age = n - 1 - i;
-        const w = age === 0 ? 1 : Math.pow(fall, age);
-        pointerSamples.push({ px: this.trailXs[i]!, py: this.trailYs[i]!, w });
+      for (let i = 0; i < trailN; i++) {
+        const ringIdx = (oldestIdx + i) % cap;
+        const age = trailN - 1 - i;
+        this.trailW[ringIdx] = age === 0 ? 1 : Math.pow(fall, age);
       }
     } else {
-      this.trailXs.length = 0;
-      this.trailYs.length = 0;
+      this.trailLen = 0;
+      this.trailHead = 0;
     }
 
     for (const d of this.dots) {
       let fx = t.returnSpring * (d.ax - d.x);
       let fy = t.returnSpring * (d.ay - d.y);
 
-      if (pointerSamples) {
-        for (const s of pointerSamples) {
-          const dx = d.x - s.px;
-          const dy = d.y - s.py;
+      if (trailN > 0) {
+        for (let i = 0; i < trailN; i++) {
+          const ringIdx = (oldestIdx + i) % cap;
+          const dx = d.x - this.trailX[ringIdx]!;
+          const dy = d.y - this.trailY[ringIdx]!;
           const dist2 = dx * dx + dy * dy;
           if (dist2 > r2) continue;
           const dist = Math.sqrt(dist2) + 1e-4;
           const gated = 1 - dist / r;
-          const base = (t.repulseStrength * s.w * gated * gated) / Math.max(d.massApprox, 0.25);
+          const base =
+            (t.repulseStrength * this.trailW[ringIdx]! * gated * gated) /
+            Math.max(d.massApprox, 0.25);
           fx += (dx / dist) * base;
           fy += (dy / dist) * base;
         }
@@ -186,8 +212,11 @@ export class DotField {
       d.ax = clamp(d.ax * sx, EDGE_MARGIN + DOT_RADIUS, pixiW - EDGE_MARGIN - DOT_RADIUS);
       d.ay = clamp(d.ay * sy, EDGE_MARGIN + DOT_RADIUS, pixiH - EDGE_MARGIN - DOT_RADIUS);
     }
-    this.trailXs = this.trailXs.map((v) => v * sx);
-    this.trailYs = this.trailYs.map((v) => v * sy);
+    const cap = this.trailCapacity();
+    for (let i = 0; i < cap; i++) {
+      this.trailX[i] = (this.trailX[i] ?? 0) * sx;
+      this.trailY[i] = (this.trailY[i] ?? 0) * sy;
+    }
     this.lastPixiW = pixiW;
     this.lastPixiH = pixiH;
     this.redraw();

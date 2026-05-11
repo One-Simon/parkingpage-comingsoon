@@ -13,4 +13,12 @@
   /** Shown under the email field for both enabled and disabled waitlist. */
   waitlistHelper:
     'Your email is only used for launch updates. Unsubscribe any time.',
+  waitlistStatus: Object.freeze({
+    sending: 'Sending…',
+    success: 'Thanks — you are on the list.',
+    invalidEmail: 'Enter a valid email address.',
+    networkError: 'Network blocked or offline.',
+    genericError: 'Could not submit. Try again.',
+    requestFailed: (status: number) => `Request failed (${status}).`,
+  }),
 });

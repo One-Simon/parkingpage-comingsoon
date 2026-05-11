@@ -5,19 +5,14 @@ import {
   SOURCEHIVE_WORD,
 } from './rasterWordMask.ts';
 
-export type { RasterMaskOptions } from './rasterWordMask.ts';
-export { SOURCEHIVE_WORD } from './rasterWordMask.ts';
-
-export type SourcehiveCell = Readonly<{ gx: number; gy: number }>;
-
-export type SourcehiveTile = Readonly<{
+type SourcehiveTile = Readonly<{
   gx: number;
   gy: number;
   x: number;
   y: number;
 }>;
 
-export interface SourcehiveLayoutWorld {
+interface SourcehiveLayoutWorld {
   /** Filled cells in row-major order from the raster (stable for matching across resizes). */
   readonly tiles: ReadonlyArray<SourcehiveTile>;
   readonly cellSizeCss: number;

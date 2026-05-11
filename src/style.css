@@ -56,11 +56,6 @@ body {
     radial-gradient(circle at 82% 8%, rgba(46, 200, 200, 0.18), transparent 40%), var(--bg-deep);
 }
 
-body.prefer-reduced-motion .static-fallback,
-.static-fallback[data-force-show='true'] {
-  display: block;
-}
-
 #ui-root {
   position: relative;
   z-index: 4;
@@ -252,24 +247,35 @@ body.prefer-reduced-motion .static-fallback,
   border: 0;
 }
 
+body.reduced-motion #pixi-root {
+  visibility: hidden;
+}
+
+body.reduced-motion {
+  overflow-y: auto;
+}
+
+body.reduced-motion .static-fallback {
+  display: block;
+}
+
+body.reduced-motion .ui-stack .glass-card {
+  box-shadow: none;
+  backdrop-filter: none;
+  background: rgba(10, 12, 24, 0.78);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* No-JS fallback: honor OS pref directly when JS hasn't toggled the class. */
 @media (prefers-reduced-motion: reduce) {
-  #pixi-root {
+  html:not(.js-loaded) #pixi-root {
     visibility: hidden;
   }
-
-  body {
+  html:not(.js-loaded) body {
     overflow-y: auto;
   }
-
-  .static-fallback {
+  html:not(.js-loaded) .static-fallback {
     display: block;
-  }
-
-  body[data-reduced-motion='true'] .ui-stack .glass-card {
-    box-shadow: none;
-    backdrop-filter: none;
-    background: rgba(10, 12, 24, 0.78);
-    border-color: rgba(255, 255, 255, 0.1);
   }
 }
 

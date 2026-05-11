@@ -6,11 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "format": "prettier -c src",
+    "format:fix": "prettier -w src"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/matter-js": "^0.20.2",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
+    "@typescript-eslint/parser": "^8.59.2",
+    "eslint": "^10.3.0",
+    "prettier": "^3.8.3",
     "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2",
     "vite": "^8.0.10"
   },
   "dependencies": {
