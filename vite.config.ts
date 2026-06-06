@@ -9,7 +9,7 @@ import type { Plugin, UserConfig } from 'vite';
  * that monkey-patches the check, but the published 8.18.x package does not expose it as a subpath
  * import, so the only reliable fix is to allow eval at the document level.)
  *
- * `frame-ancestors` is intentionally omitted — browsers ignore it when delivered via `<meta>` and
+ * `frame-ancestors` is intentionally omitted - browsers ignore it when delivered via `<meta>` and
  * log a warning. Set it as a real `Content-Security-Policy` header in Render's HTTP Headers panel
  * if you need clickjacking protection (X-Frame-Options DENY also works).
  *

@@ -17,7 +17,7 @@ import { invalidateCachedCanvasRect } from '../canvasRect.ts';
 import { cssPixelsToPixiFactors } from '../coords.ts';
 import { drawTiles } from '../mosaic/MosaicRenderer.ts';
 import { clientToCanvasCss, getPhysicsViewport } from '../physicsViewport.ts';
-import { SourcehiveProvider } from '../mosaic/providers/SourcehiveProvider.ts';
+import { WordProvider } from '../mosaic/providers/WordProvider.ts';
 import { transitionPhase } from '../mosaic/PhaseMachine.ts';
 import type { TileLayout, TileLayoutProvider, TileRecord } from '../mosaic/types.ts';
 import { TILE_LABEL } from '../mosaic/types.ts';
@@ -141,7 +141,7 @@ const letterFilterWallsOnly = tileFilterWallsOnly;
  * - {@link MosaicSettling} — settling, heal & respawn tunables and pure helpers.
  * - {@link MosaicRenderer} — per-frame Pixi draw of every tile.
  * - {@link PhaseMachine} — typed `bound`/`falling`/`returning` transitions.
- * - {@link TileLayoutProvider} (e.g. {@link SourcehiveProvider}) — pluggable shape source.
+ * - {@link TileLayoutProvider} (e.g. {@link WordProvider}) — pluggable shape source.
  *
  * `update(dt)` orchestrates the order: mouse + grab filters → tether strengths → pointer field →
  * glide pre-step → `Engine.update` → settling/heal → glide finalize → renderer.
@@ -173,8 +173,8 @@ export class BoxesLayer {
   private lastPointerCanvasCss: { x: number; y: number } | null = null;
   private layoutFrozen = false;
   private cellSizeCss = 20;
-  /** Pluggable layout source. Default = SOURCEHIVE word; injectable in the future. */
-  private readonly layoutProvider: TileLayoutProvider = new SourcehiveProvider();
+  /** Pluggable layout source. Default = configured mosaic word; injectable in the future. */
+  private readonly layoutProvider: TileLayoutProvider = new WordProvider();
   /** `tile.id` → seed; rebuilt once per {@link BoxesLayer.update}. */
   private anchorLayoutCache = new Map<string, import('../mosaic/types.ts').TileSeed>();
 
@@ -254,7 +254,7 @@ export class BoxesLayer {
   }
 
   /**
-   * Drive Matter mouse in the same **CSS canvas space** as mosaic bodies ({@link layoutSourcehiveInViewport}
+   * Drive Matter mouse in the same **CSS canvas space** as mosaic bodies ({@link layoutWordInViewport}
    * / {@link getPhysicsViewport}). `Mouse` is bound to {@link matterMouseSink} so Pixi `autoDensity`
    * cannot rewrite `mouse.position` into backing-buffer pixels via Matter's canvas listeners.
    */

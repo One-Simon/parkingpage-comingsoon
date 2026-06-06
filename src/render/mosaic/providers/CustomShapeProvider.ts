@@ -1,7 +1,7 @@
 /**
  * CustomShapeProvider — accepts a free-form set of tile seeds (any positions, any per-tile size)
  * and returns a {@link TileLayout} the mosaic engine can render. Demonstrates that the engine is
- * decoupled from the SOURCEHIVE shape: any arrangement (a logo, a pattern, mixed sizes, etc.)
+ * decoupled from the default word shape: any arrangement (a logo, a pattern, mixed sizes, etc.)
  * can be wired in by passing a different provider to {@link BoxesLayer}.
  *
  * Not used by the live page yet; exported so a future caller can swap layouts without touching

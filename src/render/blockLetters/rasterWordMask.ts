@@ -1,20 +1,20 @@
 /**
- * SOURCEHIVE mosaic: classic 5×7 LCD glyphs, each logical pixel drawn as a 3×3 block of squares
- * (minimum stroke thickness ≈ 3 cells), with gap columns between letters.
+ * Default mosaic word: classic 5x7 LCD glyphs, each logical pixel drawn as a 3x3 block of
+ * squares (minimum stroke thickness about 3 cells), with gap columns between letters.
  */
 
 import { glyph5x7PlacedInCell } from './dotMatrix5x7.ts';
 
-export const SOURCEHIVE_WORD = 'SOURCEHIVE' as const;
+export const MOSAIC_WORD = 'ACME' as const;
 
-/** Per-letter cell in the master grid (5×7 × 3 block upscale → 15×21). */
+/** Per-letter cell in the master grid (5x7 x 3 block upscale -> 15x21). */
 const LETTER_GRID_COLS = 15;
 const LETTER_GRID_ROWS = 21;
 
 /** Empty master-grid columns between letters. */
 const LETTER_GAP_COLS = 2;
 
-/** Fraction of physics/canvas width used for the mosaic span (larger ⇒ bigger squares + wider word). */
+/** Fraction of physics/canvas width used for the mosaic span (larger => bigger squares + wider word). */
 const MOSAIC_WIDTH_FRAC = 0.9;
 
 export function getMasterGridCssSize(word: string): { totalCols: number; totalRows: number } {
@@ -40,7 +40,7 @@ export function gridToCells(grid: boolean[][]): Array<{ gx: number; gy: number }
 }
 
 /**
- * Assemble `word` into one boolean matrix: 5×7 glyphs block-upscaled 3× per cell + gap columns.
+ * Assemble `word` into one boolean matrix: 5x7 glyphs block-upscaled 3x per cell + gap columns.
  */
 export function masterMaskForWord(word: string): boolean[][] {
   const upper = word.toUpperCase();

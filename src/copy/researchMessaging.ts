@@ -7,27 +7,26 @@ export interface HighlightCard {
 }
 
 export const messaging = Object.freeze({
-  brandName: 'SourceHive',
-  tagline:
-    "The world's chaos— organized & analyzed",
+  brandName: 'Acme',
+  tagline: 'A better way to launch is coming soon.',
   lede:
-    'There is too much to follow? - **Keep up with it.**\nCentralize OSINT collection, structure & analysis so Information turns into decisions, not noise.\nBuild **agentic workflows** on Agent workflow optimized infrastructure using **non-generative AI** that links signals competitors treat as unrelated.\nInformation means nothing without order and cross reference | **Catch the Links that everyone else misses.**',
+    'A focused product experience is almost ready.\nUse this template to ship a polished **coming soon** page with an interactive WebGL background, physics typography, and an email waitlist.',
   highlightCards: Object.freeze([
     {
-      title: 'Any source, any time',
-      body: 'Catch anything, from anywhere, anytime.',
+      title: 'Ready to rebrand',
+      body: 'Swap the copy, colors, favicon, and mosaic word in a few focused files.',
       icon: 'globe',
     },
     {
-      title: 'Automate & connect',
+      title: 'Static by default',
       body:
-        'Automate harvesting, cross-reference, analysis, and recommendations—frontier models, OSINT-wide.\n\nInnovation stack: agentic workflows on vector/graph + entity relations; finetuned open-weight models for context-tight linking of unrelated signals',
+        'Deploy the built assets anywhere that serves static files. Render, Netlify, Vercel, Cloudflare Pages, S3, and GitHub Pages all work.',
       icon: 'pipeline',
     },
     {
-      title: 'Built for the open web',
+      title: 'Accessible fallbacks',
       body:
-        'Built for messy open data—news, social, and the wider web—not spreadsheet BI on data that was already tidy',
+        'The DOM content stays readable, reduced-motion users get a static fallback, and the canvas is hidden from assistive technology.',
       icon: 'sources',
     },
   ] satisfies readonly HighlightCard[]),

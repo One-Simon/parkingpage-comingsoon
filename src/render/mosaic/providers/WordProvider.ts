@@ -1,27 +1,26 @@
 /**
- * SOURCEHIVE word layout exposed as a {@link TileLayoutProvider}. Wraps the existing
- * `layoutSourcehiveInViewport` so the mosaic engine no longer depends on the SourceHive shape
- * directly. Output is bit-for-bit identical to the legacy code path; ids are derived from the
- * grid coordinates (`L<gx>,<gy>`) so they stay stable across resizes.
+ * Default word layout exposed as a {@link TileLayoutProvider}. The mosaic engine stays decoupled
+ * from a particular brand shape; ids are derived from grid coordinates (`L<gx>,<gy>`) so they stay
+ * stable across resizes.
  */
 
-import { layoutSourcehiveInViewport } from '../../blockLetters/sourcehiveLayout.ts';
+import { layoutWordInViewport } from '../../blockLetters/wordLayout.ts';
 import type { TileLayout, TileLayoutProvider, TileSeed } from '../types.ts';
 
-export interface SourcehiveProviderOptions {
+export interface WordProviderOptions {
   /** Vertical placement of the mosaic (fraction of viewport height). Matches `LAYOUT_FRAC_Y`. */
   fractionY?: number;
 }
 
-export class SourcehiveProvider implements TileLayoutProvider {
+export class WordProvider implements TileLayoutProvider {
   private readonly fractionY: number;
 
-  constructor(opts: SourcehiveProviderOptions = {}) {
+  constructor(opts: WordProviderOptions = {}) {
     this.fractionY = opts.fractionY ?? 0.38;
   }
 
   compute(viewportCssW: number, viewportCssH: number): TileLayout {
-    const layout = layoutSourcehiveInViewport(viewportCssW, viewportCssH, this.fractionY);
+    const layout = layoutWordInViewport(viewportCssW, viewportCssH, this.fractionY);
     const cellSizeCss = layout.cellSizeCss;
     const tiles: TileSeed[] = layout.tiles.map((t) => ({
       id: `L${t.gx},${t.gy}`,

@@ -1,8 +1,27 @@
 {
   "name": "parkingpage-comingsoon",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A drop-in coming soon page template with an interactive WebGL background, physics typography, and an email waitlist.",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/One-Simon/parkingpage-comingsoon.git"
+  },
+  "bugs": {
+    "url": "https://github.com/One-Simon/parkingpage-comingsoon/issues"
+  },
+  "homepage": "https://github.com/One-Simon/parkingpage-comingsoon#readme",
+  "keywords": [
+    "coming-soon",
+    "landing-page",
+    "static-site",
+    "vite",
+    "pixi",
+    "matter-js",
+    "waitlist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -26,5 +45,8 @@
   "dependencies": {
     "matter-js": "^0.20.0",
     "pixi.js": "^8.18.1"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

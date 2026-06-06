@@ -1,7 +1,7 @@
 /**
  * Physics primitives for the mosaic engine. Owns Matter `Body` factories, collision filters and
  * the wall layout. Stays pure (no Pixi, no DOM): the orchestrator passes in an `Engine.world` to
- * mutate. By centralizing these primitives, swapping a layout shape (Sourcehive word vs. arbitrary
+ * mutate. By centralizing these primitives, swapping a layout shape (word vs. arbitrary
  * tiles vs. mixed sizes) does not require touching the orchestrator's physics wiring.
  */
 

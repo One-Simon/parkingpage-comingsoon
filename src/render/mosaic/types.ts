@@ -1,6 +1,6 @@
 /**
  * Mosaic shape-agnostic types. The mosaic engine consumes these contracts only — anything that
- * produces tile anchor positions (SourceHive word, custom shape, single hex grid, …) implements
+ * produces tile anchor positions (word, custom shape, single hex grid, etc.) implements
  * {@link TileLayoutProvider} and the rest of the pipeline does not change.
  */
 

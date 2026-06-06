@@ -1,20 +1,20 @@
 import {
   cellSizeFromMasterCols,
   gridToCells,
+  MOSAIC_WORD,
   masterMaskForWord,
-  SOURCEHIVE_WORD,
 } from './rasterWordMask.ts';
 
-type SourcehiveTile = Readonly<{
+type WordTile = Readonly<{
   gx: number;
   gy: number;
   x: number;
   y: number;
 }>;
 
-interface SourcehiveLayoutWorld {
+interface WordLayoutWorld {
   /** Filled cells in row-major order from the raster (stable for matching across resizes). */
-  readonly tiles: ReadonlyArray<SourcehiveTile>;
+  readonly tiles: ReadonlyArray<WordTile>;
   readonly cellSizeCss: number;
   readonly gridWidth: number;
   readonly gridHeight: number;
@@ -24,12 +24,12 @@ interface SourcehiveLayoutWorld {
  * Build mosaic layout: dot matrix + gaps; horizontal span = `MOSAIC_WIDTH_FRAC` of `cssW`;
  * `cellSizeCss` = span / total master columns.
  */
-export function layoutSourcehiveInViewport(
+export function layoutWordInViewport(
   cssW: number,
   cssH: number,
   fractionY = 0.38
-): SourcehiveLayoutWorld {
-  const mask = masterMaskForWord(SOURCEHIVE_WORD);
+): WordLayoutWorld {
+  const mask = masterMaskForWord(MOSAIC_WORD);
   const gridColumns = mask[0]?.length ?? 0;
   const gridRows = mask.length;
   const cellSizeCss = cellSizeFromMasterCols(cssW, gridColumns);
