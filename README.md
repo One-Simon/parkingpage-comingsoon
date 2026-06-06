@@ -1,5 +1,15 @@
 # SourceHive Coming Soon
 
+<p align="center">
+  <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white">
+  <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
+  <img alt="TypeScript 6" src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white">
+  <img alt="Pixi.js 8.18" src="https://img.shields.io/badge/Pixi.js-8.18-EA1E63">
+  <img alt="Matter.js 0.20" src="https://img.shields.io/badge/Matter.js-0.20-1B1F23">
+  <img alt="Render static site" src="https://img.shields.io/badge/Render-Static-46E3B7?logo=render&logoColor=white">
+  <img alt="Waitlist endpoint via VITE_FORM_ENDPOINT" src="https://img.shields.io/badge/Waitlist-VITE__FORM__ENDPOINT-0A7EA4">
+</p>
+
 SourceHive Coming Soon is the deployable early-access page for SourceHive.
 
 It shows the public landing panel, animated background, draggable `SOURCEHIVE` mosaic, and waitlist form used for launch updates.
