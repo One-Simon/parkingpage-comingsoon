@@ -38,6 +38,7 @@ import {
   CursorSpeedSampler,
   POINTER_REPULSE_RADIUS_CSS,
   applyPointerField,
+  tileInPointerFieldAtRelease,
 } from '../mosaic/PointerField.ts';
 import {
   LATTICE_GLIDE_ABORT_MULT,
@@ -89,6 +90,7 @@ import {
   TETHER_STIFFNESS_FAR,
   TETHER_STIFFNESS_NEAR,
   TETHER_STIFFNESS_RELAX,
+  tetherReturnSpeedMultFromTileId,
 } from '../mosaic/MosaicSettling.ts';
 
 const LETTER_CATEGORY = MOSAIC_TILE_CATEGORY;
@@ -178,6 +180,12 @@ export class BoxesLayer {
 
   private primaryPointerDownOnCanvas = false;
   /**
+   * Monotonic id incremented on each valid primary canvas press. Field/drag stamp
+   * {@link TileRecord.lastInteractPointerGestureId} so pointer-up coast touches only tiles
+   * interacted **this** gesture (avoids syncing stale `lastBoxInteractPerf` from earlier presses).
+   */
+  private pointerGestureId = 0;
+  /**
    * True when the pointerdown literally hit a tile hull (`Vertices.contains`). Only then is Matter's
    * `MouseConstraint` allowed to attach and grab the body; otherwise the press is field-only.
    */
@@ -197,6 +205,14 @@ export class BoxesLayer {
   private lastValidViewport: { cw: number; ch: number } | null = null;
   /** Retries when the first relayout sees sub-minimum css size (layout race on fast prod loads). */
   private relayoutDimRetryCount = 0;
+
+  /**
+   * Matter's internal `mousemove` listener converts through `canvas.width`/`clientWidth`, which under
+   * Pixi `autoDensity` is **backing-store** space, not the CSS space our bodies use. We drive the
+   * mouse exclusively from `syncMatterMouseToCanvasCss`, so attach Matter to this inert sink instead
+   * of the real canvas so native events cannot clobber `mouse.position`.
+   */
+  private readonly matterMouseSink: HTMLElement;
 
   /**
    * Mosaic cell currently grabbed by `MouseConstraint`, if any. Prefer over `mouseConstraint.body` alone:
@@ -239,8 +255,8 @@ export class BoxesLayer {
 
   /**
    * Drive Matter mouse in the same **CSS canvas space** as mosaic bodies ({@link layoutSourcehiveInViewport}
-   * / {@link getPhysicsViewport}). Do not apply {@link Mouse.scale}: with Pixi `autoDensity`, Matter�s
-   * default scale maps to backing-buffer px and would misalign pointer vs bodies on HiDPI.
+   * / {@link getPhysicsViewport}). `Mouse` is bound to {@link matterMouseSink} so Pixi `autoDensity`
+   * cannot rewrite `mouse.position` into backing-buffer pixels via Matter's canvas listeners.
    */
   private syncMatterMouseToCanvasCss(p: { x: number; y: number }): void {
     const m = this.mouse as MouseWithButton;
@@ -260,7 +276,13 @@ export class BoxesLayer {
     this.engine.velocityIterations = 12;
     this.engine.constraintIterations = 4;
 
-    this.mouse = Mouse.create(this.app.canvas);
+    this.matterMouseSink = document.createElement('div');
+    this.matterMouseSink.setAttribute('aria-hidden', 'true');
+    this.matterMouseSink.style.cssText =
+      'position:fixed;width:1px;height:1px;margin:0;padding:0;overflow:hidden;opacity:0;pointer-events:none;left:0;top:0;';
+    document.body.appendChild(this.matterMouseSink);
+
+    this.mouse = Mouse.create(this.matterMouseSink);
     const m0 = this.mouse as MouseWithButton;
     m0.scale.x = 1;
     m0.scale.y = 1;
@@ -296,20 +318,28 @@ export class BoxesLayer {
         }
         this.pointerCaptureId = null;
       }
-      // On release: enforce a real coast window. Re-stamp `lastBoxInteractPerf` so `boxHomingEase`
-      // sits near 0 right after release and climbs to 1 over exactly RELEASE_COAST_MS, regardless
-      // of how long the press lasted. While ease is low the tether is in its relax band, so the
-      // tile rides its existing field-imparted velocity. Once ease reaches 1, the standard
-      // `maybeBeginLatticeGlide` path (already gated on `boxHomingEase >= 1`) hands the tile to
-      // the kinematic ease-in-out glide for the controlled return.
+      // On release: homing “coast” only for tiles still inside the repulsion disc **at release**
+      // (same gates as the field). Gesture id limits to this press; geometry excludes tiles merely
+      // brushed earlier while the cursor was elsewhere — otherwise we over-stamp and snap tethers
+      // for the whole sweep at once.
       if (hadCanvasPress) {
         const now = performance.now();
         const stampForCoast = now - (POST_INTERACT_HOME_RESUME_MS - RELEASE_COAST_MS);
+        const gid = this.pointerGestureId;
+        const lp = this.lastPointerCanvasCss;
+        const R = this.pointerRepulsionRadiusPx();
+        const skipDragBody = this.mouseGrabLetterBody();
         for (const r of this.tileRecords) {
           if (r.phase !== 'bound' && r.phase !== 'falling') continue;
-          if (r.lastBoxInteractPerf > 0) {
-            r.lastBoxInteractPerf = stampForCoast;
+          if (r.lastInteractPointerGestureId !== gid) continue;
+          if (skipDragBody != null && r.body === skipDragBody) continue;
+          if (
+            lp == null ||
+            !tileInPointerFieldAtRelease(r, lp.x, lp.y, R, skipDragBody)
+          ) {
+            continue;
           }
+          r.lastBoxInteractPerf = stampForCoast;
         }
       }
     };
@@ -340,6 +370,7 @@ export class BoxesLayer {
       if (!rec) return;
       const now = performance.now();
       rec.lastBoxInteractPerf = now;
+      rec.lastInteractPointerGestureId = this.pointerGestureId;
       if (rec.phase === 'bound' && !rec.body.isStatic) {
         const dx = rec.anchorX - rec.body.position.x;
         const dy = rec.anchorY - rec.body.position.y;
@@ -374,6 +405,7 @@ export class BoxesLayer {
       if (!isPrimary) return;
 
       this.primaryPointerDownOnCanvas = true;
+      this.pointerGestureId += 1;
       (this.mouse as MouseWithButton).button = 0;
 
       const p = clientToCanvasCss(ev.clientX, ev.clientY, this.app);
@@ -597,8 +629,9 @@ export class BoxesLayer {
       let damp = TETHER_DAMPING_RELAX * (1 - relaxBlend) + dampMid * relaxBlend;
 
       const boxEase = this.boxHomingEase(r);
-      stiff *= boxEase;
-      damp *= boxEase;
+      const v = r.tetherReturnSpeedMult;
+      stiff *= boxEase * v;
+      damp *= boxEase * v;
 
       r.anchorTether.stiffness = stiff;
       r.anchorTether.damping = damp;
@@ -617,14 +650,17 @@ export class BoxesLayer {
     if ((this.mouse as MouseWithButton).button !== 0) return;
     const px = this.mouse.position.x;
     const py = this.mouse.position.y;
+    const R = this.pointerRepulsionRadiusPx();
     const cursorSpeedPxPerMs = this.cursorSpeed.sample(px, py, dt);
+
     applyPointerField(this.tileRecords, {
       px,
       py,
-      radius: this.pointerRepulsionRadiusPx(),
+      radius: R,
       cursorSpeedPxPerMs,
       draggedBody: this.mouseGrabLetterBody(),
       now: performance.now(),
+      gestureId: this.pointerGestureId,
     });
   }
 
@@ -1118,7 +1154,8 @@ export class BoxesLayer {
       r.latticeGlideDurationMs = chooseGlideDurationMs(
         startDist,
         outwardSpeed,
-        r.latticeGlideIsSpawn
+        r.latticeGlideIsSpawn,
+        r.tetherReturnSpeedMult,
       );
     }
 
@@ -1221,7 +1258,6 @@ export class BoxesLayer {
    */
   private stepReturningHoming(deltaMs: number): void {
     const dragged = this.mouseGrabLetterBody();
-    const k0 = 1 - Math.exp(-HOMING_LAMBDA * (deltaMs / 1000));
     const releaseDist = RELEASE_DIST_MULT * this.cellSizeCss;
     const tetherZone = Math.max(
       8,
@@ -1241,6 +1277,9 @@ export class BoxesLayer {
       if (easeR <= 0) {
         continue;
       }
+
+      const lambda = HOMING_LAMBDA * r.tetherReturnSpeedMult;
+      const k0 = 1 - Math.exp(-lambda * (deltaMs / 1000));
 
       this.syncRecordAnchorToLayout(r);
       const ax = r.anchorX;
@@ -1398,6 +1437,7 @@ export class BoxesLayer {
         r.airStuckMs = 0;
         r.tetherSettleMs = 0;
         r.lastBoxInteractPerf = -1;
+        r.lastInteractPointerGestureId = -1;
         r.latticeGlide = false;
         r.offAnchorRespawnMs = 0;
         this.resetGlideProgress(r);
@@ -1445,6 +1485,7 @@ export class BoxesLayer {
     r.airStuckMs = 0;
     r.tetherSettleMs = 0;
     r.lastBoxInteractPerf = -1;
+    r.lastInteractPointerGestureId = -1;
     r.latticeGlide = false;
     r.offAnchorRespawnMs = 0;
     this.resetGlideProgress(r);
@@ -1532,6 +1573,7 @@ export class BoxesLayer {
     this.tileRecords = [];
     this.walls = [];
     this.root.destroy({ children: true });
+    this.matterMouseSink.remove();
   }
 
   viewportCss(): { cw: number; ch: number } {
@@ -1702,6 +1744,8 @@ export class BoxesLayer {
         airStuckMs: 0,
         tetherSettleMs: 0,
         lastBoxInteractPerf: -1,
+        lastInteractPointerGestureId: -1,
+        tetherReturnSpeedMult: tetherReturnSpeedMultFromTileId(t.id),
         anchorTether: null,
         latticeGlideElapsedMs: 0,
         latticeGlideStartX: sx,

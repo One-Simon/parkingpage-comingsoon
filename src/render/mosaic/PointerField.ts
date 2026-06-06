@@ -114,6 +114,36 @@ export class CursorSpeedSampler {
 
 // Field application -------------------------------------------------------------------------------
 
+/**
+ * Same geometry + phase gates as {@link applyPointerField} (no force). Used on pointer up so
+ * “coast” homing resume only touches tiles **still under the disc**, not every tile brushed
+ * earlier in the same press.
+ */
+export function tileInPointerFieldAtRelease(
+  r: TileRecord,
+  px: number,
+  py: number,
+  radius: number,
+  draggedBody: BodyType | null
+): boolean {
+  const b = r.body;
+  const { dist: dSurf } = tileClosestSurfacePointToPointer(b, px, py);
+  const dCenter = Math.hypot(b.position.x - px, b.position.y - py);
+
+  const okSurf = dSurf < radius;
+  const okCenter = dCenter < radius;
+  const okHull = pointerDiscHitsBody({ x: px, y: py }, radius, b);
+  const inField = okSurf || okCenter || okHull;
+  if (!inField) return false;
+  if (b.isStatic) return false;
+  if (draggedBody != null && draggedBody === b) return false;
+  if (r.phase === 'returning') return false;
+  if (r.latticeGlide) return false;
+  if (dSurf >= 1e-5) return true;
+  if (dCenter >= 1e-4) return true;
+  return false;
+}
+
 export interface PointerFieldContext {
   px: number;
   py: number;
@@ -122,6 +152,8 @@ export interface PointerFieldContext {
   draggedBody: BodyType | null;
   /** `performance.now()` snapshot to stamp `lastBoxInteractPerf` on affected tiles. */
   now: number;
+  /** {@link TileRecord.lastInteractPointerGestureId} for tiles the field actually pushes. */
+  gestureId: number;
 }
 
 /**
@@ -133,7 +165,7 @@ export function applyPointerField(
   tiles: ReadonlyArray<TileRecord>,
   ctx: PointerFieldContext
 ): void {
-  const { px, py, radius: R, cursorSpeedPxPerMs, draggedBody, now } = ctx;
+  const { px, py, radius: R, cursorSpeedPxPerMs, draggedBody, now, gestureId } = ctx;
   const speedT = Math.min(1, cursorSpeedPxPerMs / POINTER_FIELD_SPEED_REF_PX_PER_MS);
   const speedFactor =
     POINTER_FIELD_SPEED_AT_REST_MULT +
@@ -144,7 +176,10 @@ export function applyPointerField(
     const { qx, qy, dist: dSurf } = tileClosestSurfacePointToPointer(b, px, py);
     const dCenter = Math.hypot(b.position.x - px, b.position.y - py);
 
-    const inField = dSurf < R || dCenter < R || pointerDiscHitsBody({ x: px, y: py }, R, b);
+    const okSurf = dSurf < R;
+    const okCenter = dCenter < R;
+    const okHull = pointerDiscHitsBody({ x: px, y: py }, R, b);
+    const inField = okSurf || okCenter || okHull;
     if (!inField) continue;
     if (b.isStatic) continue;
     if (draggedBody === b) continue;
@@ -174,5 +209,6 @@ export function applyPointerField(
     const mag = POINTER_REPULSE_FORCE * falloff * speedFactor * phaseMult;
     Body.applyForce(b, b.position, { x: nx * mag, y: ny * mag });
     r.lastBoxInteractPerf = now;
+    r.lastInteractPointerGestureId = gestureId;
   }
 }

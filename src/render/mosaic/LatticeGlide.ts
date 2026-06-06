@@ -49,17 +49,23 @@ export function glideThresholds(sizeCss: number): {
 export function chooseGlideDurationMs(
   startDistPx: number,
   outwardSpeedPxPerMs: number,
-  isSpawn: boolean
+  isSpawn: boolean,
+  tetherReturnSpeedMult = 1,
 ): number {
   const targetPxPerS = isSpawn
     ? LATTICE_GLIDE_SPAWN_TARGET_SPEED_PX_PER_S
     : LATTICE_GLIDE_TARGET_SPEED_PX_PER_S;
   const minDur = isSpawn ? LATTICE_GLIDE_SPAWN_MIN_DURATION_MS : LATTICE_GLIDE_MIN_DURATION_MS;
   const maxDur = isSpawn ? LATTICE_GLIDE_SPAWN_MAX_DURATION_MS : LATTICE_GLIDE_MAX_DURATION_MS;
+  // Spawn appear animation: uniform timing (`speedMult` 1). Per-tile jitter applies only after spawn
+  // (return glides, tether, `returning` homing; see `BoxesLayer` / `tetherReturnSpeedMult`).
+  const speedMult = isSpawn ? 1 : Math.max(0.08, tetherReturnSpeedMult);
   // Cubic Hermite naturally overshoots by ~ v0·D/6 in the outward case; budget that.
   const overshootBudgetPx = Math.max(0, outwardSpeedPxPerMs) * 280;
-  const desired = ((startDistPx + overshootBudgetPx) / targetPxPerS) * 1000;
-  return Math.min(maxDur, Math.max(minDur, desired));
+  const desired = (((startDistPx + overshootBudgetPx) / targetPxPerS) * 1000) / speedMult;
+  const durMin = minDur / speedMult;
+  const durMax = maxDur / speedMult;
+  return Math.min(durMax, Math.max(durMin, desired));
 }
 
 /**

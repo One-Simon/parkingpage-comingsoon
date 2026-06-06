@@ -19,6 +19,13 @@ export const TETHER_DAMPING_RELAX = 0.00065;
 export const TETHER_RELAX_RADIUS_MULT = 0.52;
 export const TETHER_RAMP_DIST_MULT = 10.25;
 
+/**
+ * Per-tile return speed mixes in ± this fraction around 1 (see {@link tetherReturnSpeedMultFromTileId}).
+ * `0.2` → multipliers about **0.8–1.2×** for tether, `returning` homing, and post-spawn lattice glides
+ * (the initial appear glide ignores this so the mosaic settles in together).
+ */
+export const TETHER_RETURN_SPEED_JITTER = 0.2;
+
 // Hit/release thresholds --------------------------------------------------------------------------
 export const RELEASE_DIST_MULT = 29;
 export const HIT_RELEASE_SPEED = 1.15;
@@ -72,6 +79,18 @@ export function homingResumeEase(lastInteractPerf: number, nowPerf: number): num
   if (elapsed >= POST_INTERACT_HOME_RESUME_MS) return 1;
   const t = elapsed / POST_INTERACT_HOME_RESUME_MS;
   return t * t * (3 - 2 * t);
+}
+
+/** Stable in [1−{@link TETHER_RETURN_SPEED_JITTER}, 1+{@link TETHER_RETURN_SPEED_JITTER}] from `id`. */
+export function tetherReturnSpeedMultFromTileId(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const u = ((h >>> 0) % 10001) / 10001;
+  const j = TETHER_RETURN_SPEED_JITTER;
+  return 1 - j + u * 2 * j;
 }
 
 export interface TetherStrength {

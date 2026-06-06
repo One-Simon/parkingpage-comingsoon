@@ -79,6 +79,15 @@ export interface TileRecord {
    * ramps 0→1 over `POST_INTERACT_HOME_RESUME_MS`. `-1` = never; full strength.
    */
   lastBoxInteractPerf: number;
+  /**
+   * {@link BoxesLayer} monotonic press id: field/drag set this to the active gesture so pointer-up
+   * coast only re-stamps tiles touched in **this** press.
+   */
+  lastInteractPointerGestureId: number;
+  /**
+   * Scales anchor-tether pull/damping and kinematic return (see `TETHER_RETURN_SPEED_JITTER` in MosaicSettling).
+   */
+  tetherReturnSpeedMult: number;
   /** Active only in `bound`; removed for `falling` / `returning`. */
   anchorTether: ConstraintType | null;
 
