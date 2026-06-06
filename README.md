@@ -1,182 +1,163 @@
-<div align="center">
+# SourceHive Coming Soon
 
-# parkingpage-comingsoon
+SourceHive Coming Soon is the deployable early-access page for SourceHive.
 
-**A drop-in coming soon page template** with an interactive WebGL background, draggable physics typography, an email waitlist, and a static-site deployment setup.
+It shows the public landing panel, animated background, draggable `SOURCEHIVE` mosaic, and waitlist form used for launch updates.
 
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Pixi.js](https://img.shields.io/badge/Pixi.js-8-EA1E63?logo=javascript&logoColor=white)](https://pixijs.com/)
-[![Matter.js](https://img.shields.io/badge/Matter.js-0.20-1B1F23)](https://brm.io/matter-js/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Deploy on Render](https://img.shields.io/badge/deploy-Render-46E3B7?logo=render&logoColor=white)](#deploy-to-render)
+## What It Is
 
-</div>
+- **Landing page** - SourceHive brand, positioning, and waitlist panel.
+- **Static deployment** - Builds to plain files in `dist/`.
+- **Waitlist ready** - Connects to a hosted form endpoint through `VITE_FORM_ENDPOINT`.
+- **Accessible fallback** - Keeps readable DOM content and supports reduced-motion users.
+- **Private app repo** - This repo contains SourceHive-specific copy, assets, and deployment settings.
 
----
+> [!NOTE]
+> This is the SourceHive production app repo. The public generic template lives separately at `One-Simon/parkingpage-comingsoon`.
 
-## Quick Start
+## Quick Setup
 
-Requirements: **Node.js 22+** and npm.
+### 1. Install Dependencies
+
+Use Node.js 22+ and npm.
 
 ```bash
-git clone https://github.com/One-Simon/parkingpage-comingsoon.git
-cd parkingpage-comingsoon
-cp .env.example .env          # optional - set VITE_FORM_ENDPOINT here
 npm ci
-npm run dev                   # http://localhost:5173
 ```
 
-Production bundle locally:
+### 2. Start Local Development
+
+```bash
+npm run dev
+```
+
+Open the local URL printed by Vite, usually:
+
+```text
+http://localhost:5173
+```
+
+### 3. Configure The Waitlist
+
+Copy the example env file:
+
+```bash
+cp .env.example .env
+```
+
+Set your hosted form endpoint:
+
+```env
+VITE_FORM_ENDPOINT=https://formspree.io/f/your-id
+```
+
+> [!TIP]
+> If `VITE_FORM_ENDPOINT` is empty, the page still runs, but the waitlist form is disabled. This is useful for local visual checks.
+
+### 4. Build Before Deploying
 
 ```bash
 npm run build
-npm run preview               # http://localhost:4173
 ```
 
-This is a deployable app/template, not an npm package, so `package.json` intentionally keeps `"private": true`. `package-lock.json` is committed so `npm ci` installs reproducible dependency versions in CI and static hosts.
-
----
-
-## Customize
-
-Most branding lives in a few files:
-
-| File | Purpose |
-|---|---|
-| `src/copy/researchMessaging.ts` | Brand name, hero copy, highlight cards, waitlist copy |
-| `src/render/blockLetters/rasterWordMask.ts` | Default mosaic word (`MOSAIC_WORD`) |
-| `public/favicon.png` / `public/favicon.svg` | Browser favicon and dot-field glyph |
-| `src/style.css` | CSS variables, typography, layout, responsive behavior |
-| `src/render/createApp.ts` | Pixi background color and resolution cap |
-| `.env` | Optional `VITE_FORM_ENDPOINT` waitlist endpoint |
-
-The included default uses fictional Acme demo content. Replace it with your own product copy, favicon, colors, and mosaic word.
-
-For a different shape such as a logo or custom tile layout, wire a custom `TileLayoutProvider` into `BoxesLayer`. `src/render/mosaic/providers/CustomShapeProvider.ts` is included as a starting point.
-
----
-
-## Waitlist Endpoint
-
-Set a hosted form URL locally in `.env` and in your host's environment variables:
-
-```env
-VITE_FORM_ENDPOINT=https://formspree.io/f/abcdEFGH
-```
-
-| Provider | URL shape |
-|---|---|
-| Formspree | `https://formspree.io/f/<your-form-id>` |
-| Getform | `https://getform.io/f/<your-endpoint>` |
-
-The submitter in `src/forms/waitlist.ts` sends `multipart/form-data` and expects a JSON response. If `VITE_FORM_ENDPOINT` is empty, the form renders disabled with neutral helper copy. `VITE_*` values are inlined at build time, so changing the endpoint requires a rebuild/redeploy.
-
----
-
-## Deploy
-
-### Deploy To Render
-
-`render.yaml` is included:
-
-```yaml
-services:
-  - type: web
-    name: parkingpage-comingsoon
-    runtime: static
-    buildCommand: npm ci && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: VITE_FORM_ENDPOINT
-        sync: false
-```
-
-In Render, create a Blueprint from this repo and set `VITE_FORM_ENDPOINT` if you want the waitlist enabled.
-
-### Deploy Anywhere Else
-
-Output is plain static files in `dist/`.
-
-| Host | Build command | Publish dir |
-|---|---|---|
-| Netlify | `npm ci && npm run build` | `dist` |
-| Vercel | framework: Other | `dist` |
-| Cloudflare Pages | `npm ci && npm run build` | `dist` |
-| GitHub Pages | `npm ci && npm run build` | `dist` |
-| S3 + CloudFront | `npm run build`, then sync `dist/` | n/a |
-
-For non-root deploys, set Vite's `base` in `vite.config.ts`; the favicon loader uses Vite's base path automatically.
-
----
-
-## Security Headers / CSP
-
-A production-only Content Security Policy is injected by the Vite plugin in `vite.config.ts`.
-
-Default policy summary:
+The production output is written to:
 
 ```text
-default-src 'self';
-script-src  'self' 'unsafe-eval' blob:;
-worker-src  'self' blob:;
-style-src   'self' 'unsafe-inline';
-img-src     'self' data: blob:;
-font-src    'self' data:;
-connect-src 'self' https:;
-base-uri    'self';
-form-action 'self';
-object-src  'none';
+dist/
 ```
 
-`'unsafe-eval'` is required by Pixi v8 shader internals in this build. `frame-ancestors` is intentionally omitted because browsers ignore it from meta CSP; set it as a real HTTP header at your host if you need clickjacking protection.
+## Deploy On Render
 
-The default `connect-src 'self' https:` keeps form providers plug-and-play. To restrict submissions to one provider, replace `https:` with the explicit endpoint origin, for example `https://formspree.io`.
+Create or update a Render static site from this private repository.
 
----
-
-## Using A Private Branded App
-
-The recommended split is:
-
-1. Keep this repository as the generic OSS upstream.
-2. Create a private branded app repo or private fork.
-3. Replace copy, assets, environment variables, and deployment config in the private app.
-4. Periodically merge or rebase upstream changes from this repo into the private app.
-
-For SourceHive, the preserved private app fork is `SourceHiveAI/SourceHive-ComingSoon`, with this repo as the generic upstream.
-
----
-
-## Scripts
-
-| Command | What |
+| Setting | Value |
 |---|---|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | TypeScript check + production build |
-| `npm run preview` | Serve the production bundle locally |
-| `npm run typecheck` | Run `tsc --noEmit` |
-| `npm run lint` | Run ESLint with zero warnings |
-| `npm run format` | Check Prettier formatting for `src` |
-| `npm run format:fix` | Write Prettier formatting for `src` |
+| Repository | `SourceHiveAI/SourceHive-ComingSoon` |
+| Branch | `main` |
+| Runtime | Static |
+| Build command | `npm ci && npm run build` |
+| Publish directory | `dist` |
 
----
+Required environment variables:
 
-## Accessibility
+| Variable | Value |
+|---|---|
+| `NODE_VERSION` | `22` |
+| `VITE_FORM_ENDPOINT` | SourceHive waitlist form endpoint |
 
-- DOM copy renders before the canvas and stays keyboard/screen-reader friendly.
-- The Pixi canvas and scrim layers are `aria-hidden`.
-- The waitlist has an `aria-live="polite"` status region.
-- `prefers-reduced-motion: reduce` disables the animated canvas and shows a static fallback.
+> [!IMPORTANT]
+> Deploy from `main`. Preview or sync branches can contain unfinished changes.
 
----
+The included `render.yaml` mirrors these settings for Blueprint-based setup.
 
-## Contributing
+## Content And Branding
 
-Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+Most day-to-day changes are in these files:
 
-## License
+| File | What To Change |
+|---|---|
+| `src/copy/researchMessaging.ts` | SourceHive panel copy, bullets, waitlist text |
+| `src/render/blockLetters/rasterWordMask.ts` | Mosaic word shown in the animated background |
+| `public/favicon.png` and `public/favicon.svg` | Browser icon and background glyph |
+| `index.html` | Browser title and meta description |
+| `src/style.css` | Layout, spacing, colors, and responsive panel styling |
 
-MIT. See [LICENSE](LICENSE).
+> [!WARNING]
+> Keep SourceHive copy and assets when accepting template updates. Placeholder content from the public template is not production content.
+
+## Useful Commands
+
+| Command | What It Does |
+|---|---|
+| `npm run dev` | Starts the local Vite dev server |
+| `npm run build` | Runs TypeScript and creates the production build |
+| `npm run preview` | Serves the production build locally |
+| `npm run lint` | Runs ESLint with zero warnings allowed |
+| `npm run typecheck` | Runs TypeScript without emitting files |
+| `npm run format` | Checks formatting in `src/` |
+| `npm run format:fix` | Applies formatting in `src/` |
+
+## Updating From The Template
+
+Upstream template updates are handled by the automated sync workflow.
+
+The workflow opens a pull request when the public template has new changes. Review that PR before merging.
+
+> [!NOTE]
+> Detailed sync instructions live in [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md).
+
+## Troubleshooting
+
+### The Form Is Disabled
+
+`VITE_FORM_ENDPOINT` is probably empty.
+
+Set it locally in `.env` and in Render environment variables, then rebuild/redeploy.
+
+### Changes To The Endpoint Do Not Show Up
+
+Vite inlines `VITE_*` values at build time.
+
+After changing `VITE_FORM_ENDPOINT`, run a new build or trigger a new Render deploy.
+
+### Render Shows The Wrong Version
+
+Check the Render service settings:
+
+- Repository must be `SourceHiveAI/SourceHive-ComingSoon`.
+- Branch must be `main`.
+- Publish directory must be `dist`.
+
+### The Animated Background Is Missing
+
+Run a production build locally:
+
+```bash
+npm run build
+npm run preview
+```
+
+If the static panel works but animation does not, check browser console errors and CSP settings.
+
+> [!TIP]
+> Reduced-motion settings intentionally disable the animated canvas and show a static fallback.
