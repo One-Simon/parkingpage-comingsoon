@@ -4,7 +4,7 @@ Thanks for helping improve `parkingpage-comingsoon`.
 
 ## Development
 
-Use Node.js 22+ and npm.
+Use Node.js 24 LTS and npm.
 
 ```bash
 npm ci

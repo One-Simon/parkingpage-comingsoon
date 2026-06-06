@@ -1,7 +1,7 @@
 # parkingpage-comingsoon
 
 <p align="center">
-  <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22+-339933?style=for-the-badge&logo=node.js&logoColor=white">
+  <img alt="Node.js 24 LTS" src="https://img.shields.io/badge/Node.js-24%20LTS-339933?style=for-the-badge&logo=node.js&logoColor=white">
   <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white">
   <img alt="TypeScript 6" src="https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
   <img alt="Pixi.js 8.18" src="https://img.shields.io/badge/Pixi.js-8.18-EA1E63?style=for-the-badge">
@@ -36,7 +36,7 @@ cd parkingpage-comingsoon
 
 ### 2. Install Dependencies
 
-Use Node.js 22+ and npm.
+Use Node.js 24 LTS and npm.
 
 ```bash
 npm ci
@@ -114,7 +114,7 @@ Required environment variables:
 
 | Variable | Value |
 |---|---|
-| `NODE_VERSION` | `22` |
+| `NODE_VERSION` | `24.16.0` |
 | `VITE_FORM_ENDPOINT` | Your waitlist form endpoint, or leave empty to disable the form |
 
 The included `render.yaml` mirrors these settings for Blueprint-based setup.

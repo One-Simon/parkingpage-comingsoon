@@ -6,6 +6,6 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: NODE_VERSION
-        value: "22"
+        value: "24.16.0"
       - key: VITE_FORM_ENDPOINT
         sync: false
