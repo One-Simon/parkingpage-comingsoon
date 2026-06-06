@@ -23,7 +23,7 @@ It ships with a glass-style content panel, animated WebGL background, draggable 
 - **Accessible fallback** - Keeps readable DOM content and supports reduced-motion users.
 
 > [!NOTE]
-> The included Acme content is demo content. Replace it with your own brand, copy, assets, and form endpoint before publishing.
+> The included Your Brand content is demo content. Replace it with your own brand, copy, assets, and form endpoint before publishing.
 
 ## Quick Setup
 
@@ -179,7 +179,7 @@ If the static panel works but animation does not, check browser console errors a
 Search for the old brand name and update these files first:
 
 ```bash
-rg "Acme|YourOldBrand"
+rg "Your Brand|YourOldBrand"
 ```
 
 The usual places are `src/copy/researchMessaging.ts`, `src/render/blockLetters/rasterWordMask.ts`, `index.html`, and the favicon assets.

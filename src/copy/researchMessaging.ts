@@ -7,7 +7,7 @@ export interface HighlightCard {
 }
 
 export const messaging = Object.freeze({
-  brandName: 'Acme',
+  brandName: 'YourBrand',
   tagline: 'A better way to launch is coming soon.',
   lede:
     'A focused product experience is almost ready.\nUse this template to ship a polished **coming soon** page with an interactive WebGL background, physics typography, and an email waitlist.',
