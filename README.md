@@ -1,4 +1,4 @@
-# SourceHive Coming Soon
+# parkingpage-comingsoon
 
 <p align="center">
   <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22+-339933?style=for-the-badge&logo=node.js&logoColor=white">
@@ -10,24 +10,31 @@
   <img alt="Waitlist endpoint via VITE_FORM_ENDPOINT" src="https://img.shields.io/badge/Waitlist-VITE__FORM__ENDPOINT-0A7EA4?style=for-the-badge">
 </p>
 
-SourceHive Coming Soon is the deployable early-access page for SourceHive.
+`parkingpage-comingsoon` is a ready-to-customize coming soon page for product launches, waitlists, and early-access campaigns.
 
-It shows the public landing panel, animated background, draggable `SOURCEHIVE` mosaic, and waitlist form used for launch updates.
+It ships with a glass-style content panel, animated WebGL background, draggable physics typography, and an optional waitlist form.
 
 ## What It Is
 
-- **Landing page** - SourceHive brand, positioning, and waitlist panel.
+- **Coming soon page** - A complete first screen for a launch or waitlist.
 - **Static deployment** - Builds to plain files in `dist/`.
-- **Waitlist ready** - Connects to a hosted form endpoint through `VITE_FORM_ENDPOINT`.
+- **Easy branding** - Change copy, colors, favicon, and the mosaic word in a few files.
+- **Waitlist ready** - Connects to any hosted form endpoint through `VITE_FORM_ENDPOINT`.
 - **Accessible fallback** - Keeps readable DOM content and supports reduced-motion users.
-- **Private app repo** - This repo contains SourceHive-specific copy, assets, and deployment settings.
 
 > [!NOTE]
-> This is the SourceHive production app repo. The public generic template lives separately at `One-Simon/parkingpage-comingsoon`.
+> The included Acme content is demo content. Replace it with your own brand, copy, assets, and form endpoint before publishing.
 
 ## Quick Setup
 
-### 1. Install Dependencies
+### 1. Clone The Repo
+
+```bash
+git clone https://github.com/One-Simon/parkingpage-comingsoon.git
+cd parkingpage-comingsoon
+```
+
+### 2. Install Dependencies
 
 Use Node.js 22+ and npm.
 
@@ -35,7 +42,7 @@ Use Node.js 22+ and npm.
 npm ci
 ```
 
-### 2. Start Local Development
+### 3. Start Local Development
 
 ```bash
 npm run dev
@@ -47,7 +54,7 @@ Open the local URL printed by Vite, usually:
 http://localhost:5173
 ```
 
-### 3. Configure The Waitlist
+### 4. Configure The Waitlist
 
 Copy the example env file:
 
@@ -62,9 +69,9 @@ VITE_FORM_ENDPOINT=https://formspree.io/f/your-id
 ```
 
 > [!TIP]
-> If `VITE_FORM_ENDPOINT` is empty, the page still runs, but the waitlist form is disabled. This is useful for local visual checks.
+> If `VITE_FORM_ENDPOINT` is empty, the page still runs, but the waitlist form is disabled. This is useful while you are still working on the visual design.
 
-### 4. Build Before Deploying
+### 5. Build Before Deploying
 
 ```bash
 npm run build
@@ -76,13 +83,28 @@ The production output is written to:
 dist/
 ```
 
+## Customize
+
+Most day-to-day changes are in these files:
+
+| File | What To Change |
+|---|---|
+| `src/copy/researchMessaging.ts` | Brand name, hero copy, highlight cards, waitlist text |
+| `src/render/blockLetters/rasterWordMask.ts` | Mosaic word shown in the animated background |
+| `public/favicon.png` and `public/favicon.svg` | Browser icon and background glyph |
+| `index.html` | Browser title and meta description |
+| `src/style.css` | Layout, spacing, colors, and responsive panel styling |
+
+> [!IMPORTANT]
+> `VITE_*` environment variables are inlined at build time. After changing `VITE_FORM_ENDPOINT`, build and deploy again.
+
 ## Deploy On Render
 
-Create or update a Render static site from this private repository.
+Create a Render static site or Blueprint from this repository.
 
 | Setting | Value |
 |---|---|
-| Repository | `SourceHiveAI/SourceHive-ComingSoon` |
+| Repository | `One-Simon/parkingpage-comingsoon` or your fork |
 | Branch | `main` |
 | Runtime | Static |
 | Build command | `npm ci && npm run build` |
@@ -93,27 +115,12 @@ Required environment variables:
 | Variable | Value |
 |---|---|
 | `NODE_VERSION` | `22` |
-| `VITE_FORM_ENDPOINT` | SourceHive waitlist form endpoint |
-
-> [!IMPORTANT]
-> Deploy from `main`. Preview or sync branches can contain unfinished changes.
+| `VITE_FORM_ENDPOINT` | Your waitlist form endpoint, or leave empty to disable the form |
 
 The included `render.yaml` mirrors these settings for Blueprint-based setup.
 
-## Content And Branding
-
-Most day-to-day changes are in these files:
-
-| File | What To Change |
-|---|---|
-| `src/copy/researchMessaging.ts` | SourceHive panel copy, bullets, waitlist text |
-| `src/render/blockLetters/rasterWordMask.ts` | Mosaic word shown in the animated background |
-| `public/favicon.png` and `public/favicon.svg` | Browser icon and background glyph |
-| `index.html` | Browser title and meta description |
-| `src/style.css` | Layout, spacing, colors, and responsive panel styling |
-
-> [!WARNING]
-> Keep SourceHive copy and assets when accepting template updates. Placeholder content from the public template is not production content.
+> [!TIP]
+> You can deploy the built `dist/` folder anywhere that serves static files, including Netlify, Vercel, Cloudflare Pages, GitHub Pages, S3, or your own server.
 
 ## Useful Commands
 
@@ -127,14 +134,17 @@ Most day-to-day changes are in these files:
 | `npm run format` | Checks formatting in `src/` |
 | `npm run format:fix` | Applies formatting in `src/` |
 
-## Updating From The Template
+## Content Model
 
-Upstream template updates are handled by the automated sync workflow.
+The default page is intentionally simple:
 
-The workflow opens a pull request when the public template has new changes. Review that PR before merging.
+1. `src/copy/researchMessaging.ts` exports all visible panel copy.
+2. `src/overlay.ts` renders the copy into the DOM.
+3. `src/forms/waitlist.ts` binds the form to `VITE_FORM_ENDPOINT`.
+4. `src/simulation.ts` starts the Pixi/Matter background.
 
 > [!NOTE]
-> Detailed sync instructions live in [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md).
+> The animated canvas is decorative. The main copy and waitlist form are plain DOM content.
 
 ## Troubleshooting
 
@@ -142,21 +152,13 @@ The workflow opens a pull request when the public template has new changes. Revi
 
 `VITE_FORM_ENDPOINT` is probably empty.
 
-Set it locally in `.env` and in Render environment variables, then rebuild/redeploy.
+Set it locally in `.env` and in your host's environment variables, then rebuild/redeploy.
 
 ### Changes To The Endpoint Do Not Show Up
 
 Vite inlines `VITE_*` values at build time.
 
-After changing `VITE_FORM_ENDPOINT`, run a new build or trigger a new Render deploy.
-
-### Render Shows The Wrong Version
-
-Check the Render service settings:
-
-- Repository must be `SourceHiveAI/SourceHive-ComingSoon`.
-- Branch must be `main`.
-- Publish directory must be `dist`.
+After changing `VITE_FORM_ENDPOINT`, run a new build or trigger a new deploy.
 
 ### The Animated Background Is Missing
 
@@ -171,3 +173,21 @@ If the static panel works but animation does not, check browser console errors a
 
 > [!TIP]
 > Reduced-motion settings intentionally disable the animated canvas and show a static fallback.
+
+### The Page Uses The Wrong Brand
+
+Search for the old brand name and update these files first:
+
+```bash
+rg "Acme|YourOldBrand"
+```
+
+The usual places are `src/copy/researchMessaging.ts`, `src/render/blockLetters/rasterWordMask.ts`, `index.html`, and the favicon assets.
+
+## Contributing
+
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
