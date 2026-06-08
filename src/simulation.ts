@@ -55,12 +55,7 @@ export async function bootstrapSimulation(pixHost: HTMLElement): Promise<() => P
     if (stopped) return;
     const dtMs = Math.min(app.ticker.deltaMS, DT_CAP_MS);
     boxesLayer.update(dtMs);
-    dotField.tick(
-      dtMs / 1000,
-      pointerBridge.latest,
-      app.renderer.width,
-      app.renderer.height
-    );
+    dotField.tick(dtMs / 1000, pointerBridge.latest, app.renderer.width, app.renderer.height);
   };
 
   app.ticker.add(tickerCb);

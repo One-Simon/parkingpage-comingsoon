@@ -49,7 +49,7 @@ export interface TileBodyOptions {
 export function createTileBody(
   position: { x: number; y: number },
   sizeCss: number,
-  opts: TileBodyOptions = {}
+  opts: TileBodyOptions = {},
 ): Body {
   return Bodies.rectangle(position.x, position.y, sizeCss, sizeCss, {
     isStatic: false,
@@ -85,10 +85,34 @@ export function buildWalls(viewport: ViewportCss): { walls: Body[]; floor: Body 
     },
   });
 
-  const top = Bodies.rectangle(cw * 0.5, -half, cw + WALL_THICK * 2, WALL_THICK, wallOpts(WALL_LABEL));
-  const left = Bodies.rectangle(-half, ch * 0.5, WALL_THICK, ch + WALL_THICK * 2, wallOpts(WALL_LABEL));
-  const right = Bodies.rectangle(cw + half, ch * 0.5, WALL_THICK, ch + WALL_THICK * 2, wallOpts(WALL_LABEL));
-  const floor = Bodies.rectangle(cw * 0.5, ch + half, cw + WALL_THICK * 2, WALL_THICK, wallOpts(FLOOR_LABEL));
+  const top = Bodies.rectangle(
+    cw * 0.5,
+    -half,
+    cw + WALL_THICK * 2,
+    WALL_THICK,
+    wallOpts(WALL_LABEL),
+  );
+  const left = Bodies.rectangle(
+    -half,
+    ch * 0.5,
+    WALL_THICK,
+    ch + WALL_THICK * 2,
+    wallOpts(WALL_LABEL),
+  );
+  const right = Bodies.rectangle(
+    cw + half,
+    ch * 0.5,
+    WALL_THICK,
+    ch + WALL_THICK * 2,
+    wallOpts(WALL_LABEL),
+  );
+  const floor = Bodies.rectangle(
+    cw * 0.5,
+    ch + half,
+    cw + WALL_THICK * 2,
+    WALL_THICK,
+    wallOpts(FLOOR_LABEL),
+  );
 
   return { walls: [top, left, right, floor], floor };
 }
@@ -116,7 +140,7 @@ export interface TetherOptions {
 export function createAnchorTether(
   body: Body,
   anchor: { x: number; y: number },
-  opts: TetherOptions
+  opts: TetherOptions,
 ): Constraint {
   return Constraint.create({
     bodyA: body,

@@ -36,7 +36,7 @@ export const POINTER_FIELD_SPEED_REF_PX_PER_MS = 0.72;
 export function tileClosestSurfacePointToPointer(
   body: BodyType,
   px: number,
-  py: number
+  py: number,
 ): { qx: number; qy: number; dist: number } {
   let bestD2 = Infinity;
   let qx = body.position.x;
@@ -78,7 +78,7 @@ export function tileClosestSurfacePointToPointer(
 export function pointerDiscHitsBody(
   pt: { x: number; y: number },
   _radius: number,
-  body: BodyType
+  body: BodyType,
 ): boolean {
   const start = body.parts.length > 1 ? 1 : 0;
   for (let p = start; p < body.parts.length; p++) {
@@ -124,7 +124,7 @@ export function tileInPointerFieldAtRelease(
   px: number,
   py: number,
   radius: number,
-  draggedBody: BodyType | null
+  draggedBody: BodyType | null,
 ): boolean {
   const b = r.body;
   const { dist: dSurf } = tileClosestSurfacePointToPointer(b, px, py);
@@ -163,7 +163,7 @@ export interface PointerFieldContext {
  */
 export function applyPointerField(
   tiles: ReadonlyArray<TileRecord>,
-  ctx: PointerFieldContext
+  ctx: PointerFieldContext,
 ): void {
   const { px, py, radius: R, cursorSpeedPxPerMs, draggedBody, now, gestureId } = ctx;
   const speedT = Math.min(1, cursorSpeedPxPerMs / POINTER_FIELD_SPEED_REF_PX_PER_MS);

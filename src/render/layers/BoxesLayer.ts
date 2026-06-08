@@ -1,4 +1,4 @@
-﻿import {
+import {
   Bodies,
   Body,
   Composite,
@@ -226,7 +226,7 @@ export class BoxesLayer {
 
   /**
    * True when the mouse constraint is pulling a **mosaic box** body (one `TileRecord` cell), not
-   * a �letter� glyph. Letters in the UI are made of many such boxes.
+   * a letter glyph. Letters in the UI are made of many such boxes.
    */
   private isDraggingBox(): boolean {
     return this.mouseGrabLetterBody() != null;
@@ -234,7 +234,7 @@ export class BoxesLayer {
 
   /**
    * Radius of the radial pointer **force field** (wake + repulsion); scales with {@link cellSizeCss}.
-   * Direct grab uses strict-hull `Vertices.contains` only � no separate fat-finger disc.
+   * Direct grab uses strict-hull `Vertices.contains` only; no separate fat-finger disc.
    */
   private pointerRepulsionRadiusPx(): number {
     return Math.max(POINTER_REPULSE_RADIUS_CSS, this.cellSizeCss * 2.3552);
@@ -333,10 +333,7 @@ export class BoxesLayer {
           if (r.phase !== 'bound' && r.phase !== 'falling') continue;
           if (r.lastInteractPointerGestureId !== gid) continue;
           if (skipDragBody != null && r.body === skipDragBody) continue;
-          if (
-            lp == null ||
-            !tileInPointerFieldAtRelease(r, lp.x, lp.y, R, skipDragBody)
-          ) {
+          if (lp == null || !tileInPointerFieldAtRelease(r, lp.x, lp.y, R, skipDragBody)) {
             continue;
           }
           r.lastBoxInteractPerf = stampForCoast;
@@ -506,7 +503,7 @@ export class BoxesLayer {
 
   /**
    * Strict click-on-square: pointerdown only "engages" the mosaic for grab if the cursor lies inside
-   * an actual tile hull (`Vertices.contains`). No fat-finger disc � anything else is field-only and
+   * an actual tile hull (`Vertices.contains`). No fat-finger disc; anything else is field-only and
    * Matter's `MouseConstraint` is mask-disabled by {@link syncMouseConstraintPickCollisionFilter}.
    */
   private pointerDownEngagedMosaicAtPress(pt: { x: number; y: number }): boolean {
@@ -624,8 +621,7 @@ export class BoxesLayer {
         TETHER_STIFFNESS_NEAR + (TETHER_STIFFNESS_FAR - TETHER_STIFFNESS_NEAR) * curve;
       const dampMid = TETHER_DAMPING_NEAR + (TETHER_DAMPING_FAR - TETHER_DAMPING_NEAR) * curve;
       const relaxBlend = Math.min(1, dist / relaxR);
-      let stiff =
-        TETHER_STIFFNESS_RELAX * (1 - relaxBlend) + stiffMid * relaxBlend;
+      let stiff = TETHER_STIFFNESS_RELAX * (1 - relaxBlend) + stiffMid * relaxBlend;
       let damp = TETHER_DAMPING_RELAX * (1 - relaxBlend) + dampMid * relaxBlend;
 
       const boxEase = this.boxHomingEase(r);
@@ -879,8 +875,7 @@ export class BoxesLayer {
 
     const spd = Math.hypot(b.velocity.x, b.velocity.y);
     const ang = Math.abs(b.angularVelocity);
-    const spdLimit =
-      r.phase === 'falling' ? REST_SPEED_MAX : REASSEMBLY_SPEED_MAX_BOUND;
+    const spdLimit = r.phase === 'falling' ? REST_SPEED_MAX : REASSEMBLY_SPEED_MAX_BOUND;
     if (spd > spdLimit || ang > REASSEMBLY_ANG_MAX) {
       r.offAnchorStillMs = 0;
       return;
@@ -900,7 +895,7 @@ export class BoxesLayer {
 
   /**
    * `bound` tile under anchor tether (or already very near its slot): if the pile blocks motion and
-   * distance to the anchor barely changes while speeds are low, snap the tile to its lattice cell �
+   * distance to the anchor barely changes while speeds are low, snap the tile to its lattice cell;
    * avoids indefinite tether deadlock.
    */
   private maybeForceSnapBoundWhenStuck(
@@ -954,8 +949,7 @@ export class BoxesLayer {
     } else {
       r.boundStuckMs = 0;
     }
-    const microStill =
-      spd < BOUND_STUCK_LOW_MOTION_SPD && ang < BOUND_STUCK_LOW_MOTION_ANG;
+    const microStill = spd < BOUND_STUCK_LOW_MOTION_SPD && ang < BOUND_STUCK_LOW_MOTION_ANG;
     if (microStill) {
       r.boundLowMotionMs += deltaMs;
     } else {
@@ -1060,13 +1054,13 @@ export class BoxesLayer {
   }
 
   /**
-   * Glide is a kinematic position lerp. Leaving letter�letter collisions on means `Body.setPosition`
+   * Glide is a kinematic position lerp. Leaving tile-to-tile collisions on means `Body.setPosition`
    * can drive the glider INTO a neighbor, and the next-frame collision solver produces a large
    * separation impulse (that's the "jerk" the user reported). Switch to walls-only for the duration
    * of the glide; full collisions are restored in {@link settleLetterAtAnchor} / {@link cancelLatticeGlide}.
    *
    * Captures the body's current velocity (in CSS px / ms) BEFORE zeroing so the cubic Hermite curve
-   * can blend it into the start of the return � preserving momentum across the state change.
+   * can blend it into the start of the return, preserving momentum across the state change.
    */
   private enterLatticeGlide(r: TileRecord): void {
     const b = r.body;
@@ -1090,7 +1084,7 @@ export class BoxesLayer {
   private maybeBeginLatticeGlide(r: TileRecord, dragged: Body | null | undefined): void {
     const b = r.body;
     if (r.latticeGlide || r.phase !== 'bound' || b.isStatic || dragged === b) return;
-    // If the field has touched this tile recently, do NOT re-enter the kinematic glide � it would
+    // If the field has touched this tile recently, do NOT re-enter the kinematic glide; it would
     // override applyForce by snapping the tile back to anchor each tick. Tiles on the leading edge of
     // the mosaic sat right on their anchor and got re-glided every frame, hiding the radial push.
     if (this.boxHomingEase(r) < 1) return;
@@ -1167,7 +1161,7 @@ export class BoxesLayer {
       { x: r.latticeGlideStartX, y: r.latticeGlideStartY },
       { x: ax, y: ay },
       { vx: r.latticeGlideStartVx, vy: r.latticeGlideStartVy },
-      D
+      D,
     );
     Body.setPosition(b, { x: out.x, y: out.y });
     Body.setAngle(b, b.angle * (1 - out.easedAngleDecay * 0.95));
@@ -1175,7 +1169,7 @@ export class BoxesLayer {
     Body.setAngularVelocity(b, 0);
   }
 
-  /** After physics: snap / stuck-timeout � uses post-collision distance. */
+  /** After physics: snap / stuck-timeout; uses post-collision distance. */
   private finalizeLatticeGlideAfterPhysics(
     r: TileRecord,
     dragged: Body | null | undefined,
@@ -1254,7 +1248,7 @@ export class BoxesLayer {
   }
 
   /**
-   * `returning` uses `letterFilterWallsOnly` so letters don�t collide with the pile.
+   * `returning` uses `letterFilterWallsOnly` so tiles don't collide with the pile.
    */
   private stepReturningHoming(deltaMs: number): void {
     const dragged = this.mouseGrabLetterBody();
@@ -1330,7 +1324,7 @@ export class BoxesLayer {
         }
 
         if (!b.isStatic && !r.touchingFloor) {
-          /** Letter-on-letter rest sets `touchingSupport`; that is not �air�, so do not snap homing via air-stuck. */
+          /** Tile-on-tile rest sets `touchingSupport`; that is not air, so do not snap homing via air-stuck. */
           if (r.touchingSupport) {
             r.airStuckMs = 0;
           } else {
@@ -1615,22 +1609,16 @@ export class BoxesLayer {
     }
     this.walls = [];
 
-    const floor = Bodies.rectangle(
-      cw / 2,
-      ch + WALL_THICK / 2,
-      cw + WALL_THICK * 10,
-      WALL_THICK,
-      {
-        isStatic: true,
-        label: FLOOR_LABEL,
-        friction: 0.28,
-        restitution: 0.42,
-        collisionFilter: {
-          category: WALL_CATEGORY,
-          mask: LETTER_CATEGORY | WALL_CATEGORY,
-        },
-      }
-    );
+    const floor = Bodies.rectangle(cw / 2, ch + WALL_THICK / 2, cw + WALL_THICK * 10, WALL_THICK, {
+      isStatic: true,
+      label: FLOOR_LABEL,
+      friction: 0.28,
+      restitution: 0.42,
+      collisionFilter: {
+        category: WALL_CATEGORY,
+        mask: LETTER_CATEGORY | WALL_CATEGORY,
+      },
+    });
     const ceil = Bodies.rectangle(cw / 2, -WALL_THICK * 6, cw + WALL_THICK * 14, WALL_THICK, {
       isStatic: true,
       label: WALL_LABEL,

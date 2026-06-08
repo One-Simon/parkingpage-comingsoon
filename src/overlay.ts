@@ -1,4 +1,4 @@
-﻿import { messaging, type HighlightCardIcon } from './copy/researchMessaging.ts';
+import { siteConfig, type HighlightCardIcon } from './brand/siteConfig.ts';
 
 /** Insert marketing card DOM into `#ui-root` */
 export function mountOverlay(root: HTMLElement) {
@@ -7,23 +7,27 @@ export function mountOverlay(root: HTMLElement) {
   root.innerHTML = `
     <div class="scrim scrim-behind-cards" aria-hidden="true"></div>
     <section class="glass-card" aria-labelledby="hero-heading">
-      <div class="glass-card-head">
-        <h1 id="hero-heading" class="brand-title">${escapeHtml(messaging.brandName)}</h1>
-        <img
-          class="glass-card-logo"
-          src="/favicon.png"
-          width="94"
-          height="94"
-          alt=""
-          decoding="async"
-          aria-hidden="true"
-        />
+      <div class="panel-section intro-panel">
+        <div class="glass-card-head">
+          <h1 id="hero-heading" class="brand-title">${escapeHtml(siteConfig.brandName)}</h1>
+          <img
+            class="glass-card-logo"
+            src="${escapeHtml(siteConfig.assets.cardLogo)}"
+            width="94"
+            height="94"
+            alt=""
+            decoding="async"
+            aria-hidden="true"
+          />
+        </div>
+        <p class="tagline">${escapeHtml(siteConfig.copy.tagline)}</p>
+        <p class="lede">${formatLedeHtml(siteConfig.copy.lede)}</p>
       </div>
-      <p class="tagline">${escapeHtml(messaging.tagline)}</p>
-      <p class="lede">${formatLedeHtml(messaging.lede)}</p>
-      <div class="highlight-cards" role="list">${renderHighlightCards()}</div>
-      <div class="waitlist" aria-labelledby="waitlist-title">
-        <h2 id="waitlist-title" class="subsection-title">${escapeHtml(messaging.waitlistTitle)}</h2>
+      <div class="panel-section highlights-panel">
+        <div class="highlight-cards" role="list">${renderHighlightCards()}</div>
+      </div>
+      <div class="panel-section waitlist" aria-labelledby="waitlist-title">
+        <h2 id="waitlist-title" class="subsection-title">${escapeHtml(siteConfig.copy.waitlistTitle)}</h2>
         <form id="waitlist-form" class="waitlist-form" novalidate>
           <label class="sr-only" for="waitlist-email">Email address</label>
           <input
@@ -49,7 +53,7 @@ function escapeHtml(unsafe: string) {
   return unsafe.replace(/[&<>"']/g, (ch) => map[ch as keyof typeof map]);
 }
 
-/** `**bold**` segments → `<strong>`; rest escaped. Newlines preserved via `.lede { white-space: pre-line }`. */
+/** Converts `**bold**` segments to `<strong>`; rest escaped. Newlines preserved via `.lede { white-space: pre-line }`. */
 function formatLedeHtml(src: string): string {
   const re = /\*\*([\s\S]*?)\*\*/g;
   let out = '';
@@ -64,7 +68,7 @@ function formatLedeHtml(src: string): string {
 }
 
 function renderHighlightCards(): string {
-  return messaging.highlightCards
+  return siteConfig.copy.highlightCards
     .map(
       (c) =>
         `<article class="highlight-card" role="listitem"><div class="highlight-card-icon-wrap" aria-hidden="true">${highlightIconSvg(c.icon)}</div><div class="highlight-card-main"><h3 class="highlight-card-title">${escapeHtml(c.title)}</h3><div class="highlight-card-body">${formatHighlightBody(c.body)}</div></div></article>`,
@@ -87,9 +91,9 @@ function highlightIconSvg(kind: HighlightCardIcon): string {
   switch (kind) {
     case 'globe':
       return `<svg ${common}><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a14 14 0 0 1 0 20M12 2a14 14 0 0 0 0 20"/></svg>`;
-    case 'pipeline':
+    case 'network':
       return `<svg ${common}><circle cx="5" cy="19" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="9" cy="5" r="2"/><path d="M10.3 6.6 17.2 10.6M7.2 17.4 17.4 13"/></svg>`;
-    case 'sources':
+    case 'fallbacks':
       return `<svg ${common}><path d="M4 5h16M4 9h10M4 13h16M4 17h12"/><path d="M18 3v18"/></svg>`;
     default: {
       const _exhaustive: never = kind;

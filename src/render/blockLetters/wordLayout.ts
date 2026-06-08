@@ -1,9 +1,4 @@
-import {
-  cellSizeFromMasterCols,
-  gridToCells,
-  MOSAIC_WORD,
-  masterMaskForWord,
-} from './rasterWordMask.ts';
+import { cellSizeFromMasterCols, gridToCells, masterMaskForWord } from './rasterWordMask.ts';
 
 type WordTile = Readonly<{
   gx: number;
@@ -25,11 +20,12 @@ interface WordLayoutWorld {
  * `cellSizeCss` = span / total master columns.
  */
 export function layoutWordInViewport(
+  word: string,
   cssW: number,
   cssH: number,
-  fractionY = 0.38
+  fractionY = 0.38,
 ): WordLayoutWorld {
-  const mask = masterMaskForWord(MOSAIC_WORD);
+  const mask = masterMaskForWord(word);
   const gridColumns = mask[0]?.length ?? 0;
   const gridRows = mask.length;
   const cellSizeCss = cellSizeFromMasterCols(cssW, gridColumns);

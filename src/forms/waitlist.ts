@@ -1,4 +1,4 @@
-import { messaging } from '../copy/researchMessaging.ts';
+import { siteConfig } from '../brand/siteConfig.ts';
 
 type WaitlistState = 'idle' | 'loading' | 'success' | 'error' | 'disabled';
 
@@ -14,8 +14,8 @@ interface WaitlistElements {
 }
 
 export function bindWaitlist(host: HTMLElement): WaitlistElements {
-  const endpoint = typeof import.meta.env.VITE_FORM_ENDPOINT === 'string' ? import.meta.env.VITE_FORM_ENDPOINT.trim() : '';
-  const hasEndpoint = endpoint.length > 0;
+  const endpoint = normalizeEndpoint(import.meta.env.VITE_FORM_ENDPOINT);
+  const hasEndpoint = endpoint != null;
 
   const form = host.querySelector<HTMLFormElement>('#waitlist-form');
   const input = host.querySelector<HTMLInputElement>('#waitlist-email');
@@ -27,7 +27,7 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
     throw new Error('waitlist.mount_failed');
   }
 
-  helper.textContent = messaging.waitlistHelper;
+  helper.textContent = siteConfig.copy.waitlistHelper;
   button.disabled = !hasEndpoint;
   button.setAttribute('aria-disabled', String(!hasEndpoint));
   status.textContent = '';
@@ -46,18 +46,18 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
         button.disabled = false;
         break;
       case 'loading':
-        status.textContent = messaging.waitlistStatus.sending;
+        status.textContent = siteConfig.copy.waitlistStatus.sending;
         input.disabled = true;
         button.disabled = true;
         break;
       case 'success':
-        status.textContent = messaging.waitlistStatus.success;
+        status.textContent = siteConfig.copy.waitlistStatus.success;
         input.value = '';
         input.disabled = false;
         button.disabled = false;
         break;
       case 'error':
-        status.textContent = message || messaging.waitlistStatus.genericError;
+        status.textContent = message || siteConfig.copy.waitlistStatus.genericError;
         input.disabled = false;
         button.disabled = false;
         break;
@@ -80,11 +80,11 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
     async (ev) => {
       ev.preventDefault();
       if (!hasEndpoint || state === 'loading') return;
-      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       if (now - lastSubmitAt < SUBMIT_THROTTLE_MS) return;
       const raw = input.value.trim();
       if (!EMAIL_RE.test(raw)) {
-        status.textContent = messaging.waitlistStatus.invalidEmail;
+        status.textContent = siteConfig.copy.waitlistStatus.invalidEmail;
         return;
       }
       lastSubmitAt = now;
@@ -100,7 +100,7 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
           body,
         });
         if (!res.ok) {
-          let msg = messaging.waitlistStatus.requestFailed(res.status);
+          let msg = `${siteConfig.copy.waitlistStatus.requestFailedPrefix} (${res.status}).`;
           try {
             const data = await res.json();
             if (data.errors && typeof data.errors === 'object') {
@@ -134,11 +134,11 @@ export function bindWaitlist(host: HTMLElement): WaitlistElements {
         }
         setState('success');
       } catch {
-        setState('error', messaging.waitlistStatus.networkError);
+        setState('error', siteConfig.copy.waitlistStatus.networkError);
         input.focus({ preventScroll: true });
       }
     },
-    { passive: false }
+    { passive: false },
   );
 
   return { form, input, button, helper, status };
@@ -155,4 +155,16 @@ function formatFieldErrors(errors: Record<string, unknown>) {
     }
   }
   return '';
+}
+
+function normalizeEndpoint(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const endpoint = value.trim();
+  if (!endpoint) return null;
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
 }

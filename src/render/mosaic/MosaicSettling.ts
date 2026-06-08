@@ -105,14 +105,13 @@ export interface TetherStrength {
 export function tetherStrengthAt(
   distFromAnchorPx: number,
   sizeCss: number,
-  homingEase: number
+  homingEase: number,
 ): TetherStrength {
   const tetherRampDist = TETHER_RAMP_DIST_MULT * sizeCss;
   const t = Math.min(1, distFromAnchorPx / Math.max(tetherRampDist, 1e-6));
   const baseStiff = TETHER_STIFFNESS_NEAR + (TETHER_STIFFNESS_FAR - TETHER_STIFFNESS_NEAR) * t;
   const baseDamp = TETHER_DAMPING_NEAR + (TETHER_DAMPING_FAR - TETHER_DAMPING_NEAR) * t;
-  const stiffness =
-    TETHER_STIFFNESS_RELAX + (baseStiff - TETHER_STIFFNESS_RELAX) * homingEase;
+  const stiffness = TETHER_STIFFNESS_RELAX + (baseStiff - TETHER_STIFFNESS_RELAX) * homingEase;
   const damping = TETHER_DAMPING_RELAX + (baseDamp - TETHER_DAMPING_RELAX) * homingEase;
   return { stiffness, damping };
 }

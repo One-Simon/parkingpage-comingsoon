@@ -27,24 +27,26 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --max-warnings 0",
-    "format": "prettier -c src",
-    "format:fix": "prettier -w src"
+    "lint": "eslint . --max-warnings 0",
+    "test:smoke": "playwright test",
+    "format": "prettier -c src tests playwright.config.ts vite.config.ts",
+    "format:fix": "prettier -w src tests playwright.config.ts vite.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
     "@types/matter-js": "^0.20.2",
-    "@typescript-eslint/eslint-plugin": "^8.59.2",
-    "@typescript-eslint/parser": "^8.59.2",
-    "eslint": "^10.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "eslint": "^10.4.1",
     "prettier": "^3.8.3",
     "typescript": "~6.0.2",
-    "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.10"
+    "typescript-eslint": "^8.60.1",
+    "vite": "^8.0.16"
   },
   "dependencies": {
     "matter-js": "^0.20.0",
-    "pixi.js": "^8.18.1"
+    "pixi.js": "^8.19.0"
   },
   "engines": {
     "node": ">=24.16.0 <25"

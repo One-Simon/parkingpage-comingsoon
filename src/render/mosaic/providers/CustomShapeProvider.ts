@@ -73,9 +73,17 @@ export class CustomShapeProvider implements TileLayoutProvider {
     const inH = (inMaxY - inMinY) * this.scale;
 
     const targetX =
-      this.alignX === 'left' ? 0 : this.alignX === 'right' ? viewportCssW - inW : (viewportCssW - inW) * 0.5;
+      this.alignX === 'left'
+        ? 0
+        : this.alignX === 'right'
+          ? viewportCssW - inW
+          : (viewportCssW - inW) * 0.5;
     const targetY =
-      this.alignY === 'top' ? 0 : this.alignY === 'bottom' ? viewportCssH - inH : (viewportCssH - inH) * 0.5;
+      this.alignY === 'top'
+        ? 0
+        : this.alignY === 'bottom'
+          ? viewportCssH - inH
+          : (viewportCssH - inH) * 0.5;
 
     const dx = targetX - inMinX * this.scale + this.offset.x;
     const dy = targetY - inMinY * this.scale + this.offset.y;

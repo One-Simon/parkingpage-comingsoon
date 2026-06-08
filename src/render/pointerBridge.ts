@@ -38,7 +38,7 @@ export class PointerBridge {
 
     this.disposers.push(
       () => window.removeEventListener('pointermove', onMove),
-      () => this.app.canvas.removeEventListener('pointerleave', onLeave)
+      () => this.app.canvas.removeEventListener('pointerleave', onLeave),
     );
   }
 
@@ -56,8 +56,8 @@ function shouldIgnoreInteraction(target: EventTarget | null, selector: string): 
   try {
     return Boolean(
       (target as Element).closest?.(
-        `${selector} input, ${selector} textarea, ${selector} button, ${selector} a`
-      )
+        `${selector} input, ${selector} textarea, ${selector} button, ${selector} a`,
+      ),
     );
   } catch {
     return false;

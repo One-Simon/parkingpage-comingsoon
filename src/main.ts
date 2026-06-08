@@ -3,7 +3,8 @@ import { bindWaitlist } from './forms/waitlist.ts';
 import { mountOverlay } from './overlay.ts';
 import { bootstrapSimulation } from './simulation.ts';
 
-const mq = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+const mq =
+  typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 function reqHost(selector: string): HTMLElement {
   const el = document.querySelector(selector);

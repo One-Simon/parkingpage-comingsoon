@@ -4,7 +4,7 @@
   <img alt="Node.js 24 LTS" src="https://img.shields.io/badge/Node.js-24%20LTS-339933?style=for-the-badge&logo=node.js&logoColor=white">
   <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white">
   <img alt="TypeScript 6" src="https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
-  <img alt="Pixi.js 8.18" src="https://img.shields.io/badge/Pixi.js-8.18-EA1E63?style=for-the-badge">
+  <img alt="Pixi.js 8.19" src="https://img.shields.io/badge/Pixi.js-8.19-EA1E63?style=for-the-badge">
   <img alt="Matter.js 0.20" src="https://img.shields.io/badge/Matter.js-0.20-1B1F23?style=for-the-badge">
   <img alt="Render static site" src="https://img.shields.io/badge/Render-Static-46E3B7?style=for-the-badge&logo=render&logoColor=white">
   <img alt="Waitlist endpoint via VITE_FORM_ENDPOINT" src="https://img.shields.io/badge/Waitlist-VITE__FORM__ENDPOINT-0A7EA4?style=for-the-badge">
@@ -18,7 +18,7 @@ It ships with a glass-style content panel, animated WebGL background, draggable 
 
 - **Coming soon page** - A complete first screen for a launch or waitlist.
 - **Static deployment** - Builds to plain files in `dist/`.
-- **Easy branding** - Change copy, colors, favicon, and the mosaic word in a few files.
+- **Easy branding** - Change copy, metadata, favicons, logos, and the mosaic word from one brand config plus brand assets.
 - **Waitlist ready** - Connects to any hosted form endpoint through `VITE_FORM_ENDPOINT`.
 - **Accessible fallback** - Keeps readable DOM content and supports reduced-motion users.
 
@@ -85,14 +85,12 @@ dist/
 
 ## Customize
 
-Most day-to-day changes are in these files:
+Most day-to-day brand changes are in these files:
 
 | File | What To Change |
 |---|---|
-| `src/copy/researchMessaging.ts` | Brand name, hero copy, highlight cards, waitlist text |
-| `src/render/blockLetters/rasterWordMask.ts` | Mosaic word shown in the animated background |
-| `public/favicon.png` and `public/favicon.svg` | Browser icon and background glyph |
-| `index.html` | Browser title and meta description |
+| `src/brand/siteConfig.ts` | Brand name, browser title, meta description, mosaic word, visible copy, and asset paths |
+| `public/brand/favicon.png` and `public/brand/favicon.svg` | Browser icon, card logo, and background glyph |
 | `src/style.css` | Layout, spacing, colors, and responsive panel styling |
 
 > [!IMPORTANT]
@@ -122,6 +120,20 @@ The included `render.yaml` mirrors these settings for Blueprint-based setup.
 > [!TIP]
 > You can deploy the built `dist/` folder anywhere that serves static files, including Netlify, Vercel, Cloudflare Pages, GitHub Pages, S3, or your own server.
 
+## Downstream Sync Contract
+
+This repository is intended to be usable as an upstream template for branded downstream apps.
+
+Upstream-owned files include shared app code, rendering, tests, package manifests, Vite config, and the generic default brand config shape.
+
+Downstream branded repos should keep company-specific identity in:
+
+- `src/brand/siteConfig.ts`
+- `public/brand/**`
+- deployment docs/config such as `README.md`, `LICENSE`, and `render.yaml`
+
+Avoid editing shared implementation files for company names, copy, mosaic text, favicons, or logos. This keeps upstream sync PRs small and prevents recurring merge conflicts.
+
 ## Useful Commands
 
 | Command | What It Does |
@@ -138,7 +150,7 @@ The included `render.yaml` mirrors these settings for Blueprint-based setup.
 
 The default page is intentionally simple:
 
-1. `src/copy/researchMessaging.ts` exports all visible panel copy.
+1. `src/brand/siteConfig.ts` exports all brand metadata, visible panel copy, asset paths, and mosaic text.
 2. `src/overlay.ts` renders the copy into the DOM.
 3. `src/forms/waitlist.ts` binds the form to `VITE_FORM_ENDPOINT`.
 4. `src/simulation.ts` starts the Pixi/Matter background.
@@ -182,7 +194,7 @@ Search for the old brand name and update these files first:
 rg "Your Brand|YourOldBrand"
 ```
 
-The usual places are `src/copy/researchMessaging.ts`, `src/render/blockLetters/rasterWordMask.ts`, `index.html`, and the favicon assets.
+The usual places are `src/brand/siteConfig.ts` and `public/brand/**`.
 
 ## Contributing
 

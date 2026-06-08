@@ -17,7 +17,7 @@ export function getPhysicsViewport(app: Application): { cw: number; ch: number }
 export function clientToCanvasCss(
   clientX: number,
   clientY: number,
-  app: Application
+  app: Application,
 ): { x: number; y: number } {
   const rect = getCachedCanvasRect(app);
   return {

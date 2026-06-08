@@ -5,8 +5,6 @@
 
 import { glyph5x7PlacedInCell } from './dotMatrix5x7.ts';
 
-export const MOSAIC_WORD = 'YOUR BRAND' as const;
-
 /** Per-letter cell in the master grid (5x7 x 3 block upscale -> 15x21). */
 const LETTER_GRID_COLS = 15;
 const LETTER_GRID_ROWS = 21;

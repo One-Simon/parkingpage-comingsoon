@@ -78,7 +78,7 @@ export function evaluateGlide(
   start: { x: number; y: number },
   anchor: { x: number; y: number },
   startVel: { vx: number; vy: number },
-  durationMs: number
+  durationMs: number,
 ): { x: number; y: number; easedAngleDecay: number } {
   const tt = t * t;
   const ttt = tt * t;

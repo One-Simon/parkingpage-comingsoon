@@ -1,4 +1,4 @@
-﻿*,
+*,
 *::before,
 *::after {
   box-sizing: border-box;
@@ -23,13 +23,7 @@ body {
 }
 
 body {
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    '-apple-system',
-    'Segoe UI',
-    Helvetica,
-    sans-serif;
+  font-family: ui-sans-serif, system-ui, '-apple-system', 'Segoe UI', Helvetica, sans-serif;
   color: var(--text);
   background: var(--bg-accent), var(--bg-deep);
 }
@@ -61,14 +55,19 @@ body {
 #ui-root {
   position: relative;
   z-index: 4;
+  min-height: 100dvh;
 }
 
 .ui-stack {
-  min-height: 100vh;
+  --viewport-gutter: clamp(1rem, 4vmin, 3.5rem);
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
+  justify-content: safe center;
   align-items: center;
-  padding: clamp(1.75rem, 4vw, 3.5rem);
+  padding: var(--viewport-gutter);
+  padding-block-start: max(var(--viewport-gutter), env(safe-area-inset-top));
+  padding-block-end: max(var(--viewport-gutter), env(safe-area-inset-bottom));
   pointer-events: none;
 }
 
@@ -97,27 +96,28 @@ body {
 }
 
 .scrim-edge {
-  z-index: 5;
+  z-index: 2;
   background: radial-gradient(circle at 50% -12%, transparent 58%, rgba(0, 0, 0, 0.65));
 }
 
 .glass-card {
   position: relative;
   z-index: 3;
+  container-type: inline-size;
   width: min(560px, 100%);
   max-width: 44rem;
   backdrop-filter: blur(22px) saturate(1);
-  background: linear-gradient(
-    168deg,
-    rgba(26, 26, 31, 0.94),
-    rgba(14, 14, 17, 0.9)
-  );
+  background: linear-gradient(168deg, rgba(26, 26, 31, 0.94), rgba(14, 14, 17, 0.9));
   border: 1px solid var(--glass-edge);
-  border-radius: 1.25rem;
-  padding: clamp(1.1rem, 2vw, 1.5rem) clamp(1.85rem, 3.2vw, 2.85rem) clamp(1.85rem, 3.2vw, 2.85rem);
+  border-radius: clamp(0.95rem, 4vw, 1.25rem);
+  padding: clamp(1rem, 2vw, 1.5rem) clamp(1rem, 6vw, 2.85rem) clamp(1.25rem, 6vw, 2.85rem);
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.75),
     inset 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.panel-section {
+  min-width: 0;
 }
 
 .glass-card-head {
@@ -131,7 +131,7 @@ body {
 
 .glass-card-logo {
   display: block;
-  width: clamp(74px, 17.55vw, 101px);
+  width: clamp(58px, 20cqi, 101px);
   height: auto;
   aspect-ratio: 1;
   object-fit: contain;
@@ -142,7 +142,7 @@ body {
   min-width: 0;
   text-align: left;
   align-self: center;
-  font-size: clamp(2.35rem, 5.6vw, 3.45rem);
+  font-size: clamp(2rem, 11cqi, 3.45rem);
   line-height: 1;
 }
 
@@ -297,6 +297,7 @@ body {
 }
 
 .waitlist-form button {
+  flex: 0 0 auto;
   cursor: pointer;
   border-radius: 0.72rem;
   border: 1px solid rgba(255, 164, 72, 0.55);
@@ -331,6 +332,92 @@ body {
   margin: 0;
   font-size: 0.82rem;
   color: rgba(120, 226, 178, 0.9);
+}
+
+@container (max-width: 26rem) {
+  .glass-card-head {
+    gap: 0.8rem;
+    margin-bottom: 0.95rem;
+  }
+
+  .highlight-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.7rem;
+    padding: 0.9rem;
+  }
+
+  .highlight-card-icon-wrap {
+    width: 2.45rem;
+    height: 2.45rem;
+  }
+
+  .waitlist-form input,
+  .waitlist-form button {
+    flex-basis: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 44rem) {
+  .ui-stack {
+    align-items: flex-start;
+  }
+
+  .glass-card {
+    display: grid;
+    gap: clamp(1.35rem, 5vmin, 2rem);
+    width: min(100%, 30rem);
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .panel-section {
+    backdrop-filter: blur(22px) saturate(1);
+    background: linear-gradient(168deg, rgba(26, 26, 31, 0.94), rgba(14, 14, 17, 0.9));
+    border: 1px solid var(--glass-edge);
+    border-radius: clamp(0.95rem, 4vw, 1.25rem);
+    padding: clamp(1rem, 5vw, 1.45rem);
+    box-shadow:
+      0 18px 44px rgba(0, 0, 0, 0.62),
+      inset 0 1px rgba(255, 255, 255, 0.07);
+  }
+
+  .intro-panel .lede,
+  .highlights-panel .highlight-cards {
+    margin-bottom: 0;
+  }
+
+  .intro-panel {
+    margin-bottom: clamp(9rem, 32dvh, 18rem);
+  }
+
+  .highlight-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .waitlist {
+    margin-top: 0;
+    padding-top: clamp(1rem, 5vw, 1.45rem);
+    border-top: 1px solid var(--glass-edge);
+  }
+}
+
+@container (max-width: 21rem) {
+  .glass-card-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .glass-card-logo {
+    order: -1;
+    width: clamp(54px, 22cqi, 70px);
+  }
 }
 
 .sr-only {
@@ -376,4 +463,3 @@ body.reduced-motion .ui-stack .glass-card {
     display: block;
   }
 }
-

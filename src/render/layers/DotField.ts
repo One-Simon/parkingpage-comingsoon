@@ -1,4 +1,5 @@
-﻿import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { siteConfig } from '../../brand/siteConfig.ts';
 import type { PointerSample } from '../pointerBridge.ts';
 
 const DOT_COUNT = 4500;
@@ -32,7 +33,7 @@ const HALO_RADIUS_MULT = 5.35;
 /** Layout spacing for anchor grid (worst-case glyph footprint). */
 const PLACEMENT_EXTENT_HALF = Math.max(
   GLYPH_SIDE * 0.5,
-  DISPLAY_STAR_RADII[DISPLAY_STAR_RADII.length - 1]! * 1.85
+  DISPLAY_STAR_RADII[DISPLAY_STAR_RADII.length - 1]! * 1.85,
 );
 
 interface DotFieldTuning {
@@ -82,7 +83,7 @@ type GlyphDatum = Phys & {
   sprite: Sprite;
 };
 
-/** 1×1 PNG used when `public/favicon.png` cannot be loaded (CDN path, worker fetch, etc.). */
+/** 1x1 PNG used when the configured dot glyph texture cannot be loaded. */
 const FALLBACK_GLYPH_TEXTURE_SRC =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -90,8 +91,11 @@ const FALLBACK_GLYPH_TEXTURE_SRC =
 export async function loadDotFieldFaviconTexture(): Promise<Texture> {
   const href =
     typeof window === 'undefined'
-      ? '/favicon.png'
-      : new URL('favicon.png', window.location.origin + import.meta.env.BASE_URL).href;
+      ? siteConfig.assets.dotGlyphTexture
+      : new URL(
+          siteConfig.assets.dotGlyphTexture.replace(/^\//, ''),
+          window.location.origin + import.meta.env.BASE_URL,
+        ).href;
   try {
     return await Assets.load<Texture>(href);
   } catch (err) {
@@ -117,7 +121,12 @@ export class DotField {
   private lastPixiW: number;
   private lastPixiH: number;
 
-  constructor(pixiW: number, pixiH: number, texture: Texture, tuning: DotFieldTuning = DEFAULT_DOT_TUNING) {
+  constructor(
+    pixiW: number,
+    pixiH: number,
+    texture: Texture,
+    tuning: DotFieldTuning = DEFAULT_DOT_TUNING,
+  ) {
     this.tuning = tuning;
     this.lastPixiW = pixiW;
     this.lastPixiH = pixiH;
@@ -158,9 +167,9 @@ export class DotField {
         this.container.addChild(spr);
       } else {
         const uBright = seededDeterministicUnit(starSeq, 713);
-        const rPick = Math.floor(
-          seedPerm03(starSeq + 501) * DISPLAY_STAR_RADII.length
-        ) % DISPLAY_STAR_RADII.length;
+        const rPick =
+          Math.floor(seedPerm03(starSeq + 501) * DISPLAY_STAR_RADII.length) %
+          DISPLAY_STAR_RADII.length;
         const r = DISPLAY_STAR_RADII[rPick]!;
         let coreAlpha = 0.62 + uBright * 0.23;
         let haloAlpha = 0;
@@ -292,7 +301,7 @@ export class DotField {
       vy: number,
       ax: number,
       ay: number,
-      massApprox: number
+      massApprox: number,
     ): { x: number; y: number; vx: number; vy: number } => {
       let fx = t.returnSpring * (ax - x);
       let fy = t.returnSpring * (ay - y);

@@ -5,6 +5,7 @@
  */
 
 import { layoutWordInViewport } from '../../blockLetters/wordLayout.ts';
+import { siteConfig } from '../../../brand/siteConfig.ts';
 import type { TileLayout, TileLayoutProvider, TileSeed } from '../types.ts';
 
 export interface WordProviderOptions {
@@ -20,7 +21,12 @@ export class WordProvider implements TileLayoutProvider {
   }
 
   compute(viewportCssW: number, viewportCssH: number): TileLayout {
-    const layout = layoutWordInViewport(viewportCssW, viewportCssH, this.fractionY);
+    const layout = layoutWordInViewport(
+      siteConfig.mosaicWord,
+      viewportCssW,
+      viewportCssH,
+      this.fractionForViewport(viewportCssW),
+    );
     const cellSizeCss = layout.cellSizeCss;
     const tiles: TileSeed[] = layout.tiles.map((t) => ({
       id: `L${t.gx},${t.gy}`,
@@ -52,5 +58,10 @@ export class WordProvider implements TileLayoutProvider {
       worldBounds: { minX, minY, maxX, maxY },
       defaultCellSizeCss: cellSizeCss,
     };
+  }
+
+  private fractionForViewport(viewportCssW: number): number {
+    const narrowness = Math.min(1, Math.max(0, (720 - viewportCssW) / 360));
+    return this.fractionY + narrowness * 0.2;
   }
 }
