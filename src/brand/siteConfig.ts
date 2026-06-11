@@ -18,6 +18,9 @@ export interface SiteConfig {
     readonly cardLogo: string;
     readonly dotGlyphTexture: string;
   };
+  readonly ui: {
+    readonly showPanel: boolean;
+  };
   readonly copy: {
     readonly tagline: string;
     readonly lede: string;
@@ -47,6 +50,9 @@ export const siteConfig: SiteConfig = {
     faviconPng: '/brand/favicon.png',
     cardLogo: '/brand/favicon.svg',
     dotGlyphTexture: '/brand/favicon.png',
+  },
+  ui: {
+    showPanel: true,
   },
   copy: {
     tagline: 'A better way to launch is coming soon.',

@@ -2,11 +2,15 @@ import { siteConfig, type HighlightCardIcon } from './brand/siteConfig.ts';
 
 /** Insert marketing card DOM into `#ui-root` */
 export function mountOverlay(root: HTMLElement) {
-  root.className = 'ui-stack';
+  const panelIsVisible = siteConfig.ui.showPanel;
+  const hiddenAttr = panelIsVisible ? '' : ' hidden';
+  const panelHiddenAttrs = panelIsVisible ? '' : ' hidden aria-hidden="true"';
+
+  root.className = panelIsVisible ? 'ui-stack' : 'ui-stack ui-stack-panel-hidden';
 
   root.innerHTML = `
-    <div class="scrim scrim-behind-cards" aria-hidden="true"></div>
-    <section class="glass-card" aria-labelledby="hero-heading">
+    <div class="scrim scrim-behind-cards"${hiddenAttr} aria-hidden="true"></div>
+    <section class="glass-card"${panelHiddenAttrs} aria-labelledby="hero-heading">
       <div class="panel-section intro-panel">
         <div class="glass-card-head">
           <h1 id="hero-heading" class="brand-title">${escapeHtml(siteConfig.brandName)}</h1>
@@ -42,7 +46,7 @@ export function mountOverlay(root: HTMLElement) {
         <p id="waitlist-status" role="status" aria-live="polite" class="status-text"></p>
       </div>
     </section>
-    <div class="scrim scrim-edge" aria-hidden="true"></div>
+    <div class="scrim scrim-edge"${hiddenAttr} aria-hidden="true"></div>
   `.trim();
 }
 

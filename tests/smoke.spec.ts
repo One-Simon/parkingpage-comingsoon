@@ -27,6 +27,9 @@ test('production page spawns the canvas, overlay, and waitlist', async ({ page }
     const form = document.querySelector('form');
     const email = document.querySelector('input[type="email"]');
     const button = document.querySelector('button');
+    const panel = document.querySelector('.glass-card');
+    const heading = document.querySelector('#hero-heading');
+    const scrims = document.querySelectorAll('.scrim');
     const canvasRect = canvas?.getBoundingClientRect();
     const rootRect = root?.getBoundingClientRect();
 
@@ -38,13 +41,26 @@ test('production page spawns the canvas, overlay, and waitlist', async ({ page }
         width: canvas.width,
         height: canvas.height,
       },
+      panelExists: Boolean(panel),
+      panelHidden: panel?.hasAttribute('hidden') ?? false,
+      headingText: heading?.textContent,
+      hiddenScrims: Array.from(scrims).filter((scrim) => scrim.hasAttribute('hidden')).length,
+      scrims: scrims.length,
       form: Boolean(form),
       email: Boolean(email),
       button: Boolean(button),
     };
   });
 
-  await expect(page.getByRole('heading', { name: siteConfig.brandName })).toBeVisible();
+  expect(state.panelExists).toBe(true);
+  expect(state.panelHidden).toBe(!siteConfig.ui.showPanel);
+  expect(state.headingText).toBe(siteConfig.brandName);
+  expect(state.hiddenScrims).toBe(siteConfig.ui.showPanel ? 0 : state.scrims);
+  if (siteConfig.ui.showPanel) {
+    await expect(page.getByRole('heading', { name: siteConfig.brandName })).toBeVisible();
+  } else {
+    await expect(page.locator('.glass-card')).toBeHidden();
+  }
   expect(state.root?.width).toBeGreaterThan(300);
   expect(state.root?.height).toBeGreaterThan(300);
   expect(state.canvas?.width).toBeGreaterThan(300);
