@@ -258,6 +258,30 @@ body {
   margin-bottom: 0;
 }
 
+.bullet-list {
+  margin: 0 0 1.65rem;
+  padding-left: 1.15rem;
+  color: rgba(232, 234, 240, 0.95);
+  list-style: disc;
+}
+
+.bullet-list li {
+  margin-bottom: 0.58rem;
+  line-height: 1.52;
+  padding-left: 0.15rem;
+}
+
+.bullet-list li::marker {
+  color: rgba(216, 216, 222, 0.78);
+}
+
+.bullet-list .highlight-card-p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: inherit;
+  color: inherit;
+}
+
 .waitlist {
   margin-top: 0.35rem;
   padding-top: 1.35rem;
@@ -386,7 +410,8 @@ body {
   }
 
   .intro-panel .lede,
-  .highlights-panel .highlight-cards {
+  .highlights-panel .highlight-cards,
+  .highlights-panel .bullet-list {
     margin-bottom: 0;
   }
 

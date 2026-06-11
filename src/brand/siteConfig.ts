@@ -1,4 +1,5 @@
 export type HighlightCardIcon = 'globe' | 'network' | 'fallbacks';
+export type HighlightLayout = 'cards' | 'bullets';
 
 export interface HighlightCard {
   readonly title: string;
@@ -12,7 +13,7 @@ export interface SiteConfig {
   readonly metaDescription: string;
   readonly mosaicWord: string;
   readonly assets: {
-    readonly faviconSvg: string;
+    readonly faviconSvg?: string;
     readonly faviconPng: string;
     readonly cardLogo: string;
     readonly dotGlyphTexture: string;
@@ -20,6 +21,7 @@ export interface SiteConfig {
   readonly copy: {
     readonly tagline: string;
     readonly lede: string;
+    readonly highlightLayout: HighlightLayout;
     readonly highlightCards: readonly HighlightCard[];
     readonly waitlistTitle: string;
     readonly waitlistHelper: string;
@@ -34,7 +36,7 @@ export interface SiteConfig {
   };
 }
 
-export const siteConfig = {
+export const siteConfig: SiteConfig = {
   brandName: 'YourBrand',
   pageTitle: 'YourBrand - coming soon',
   metaDescription:
@@ -49,6 +51,7 @@ export const siteConfig = {
   copy: {
     tagline: 'A better way to launch is coming soon.',
     lede: 'A focused product experience is almost ready.\nUse this template to ship a polished **coming soon** page with an interactive WebGL background, physics typography, and an email waitlist.',
+    highlightLayout: 'cards',
     highlightCards: Object.freeze([
       {
         title: 'Ready to rebrand',
@@ -77,4 +80,4 @@ export const siteConfig = {
       requestFailedPrefix: 'Request failed',
     },
   },
-} satisfies SiteConfig;
+};

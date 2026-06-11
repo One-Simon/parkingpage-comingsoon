@@ -23,9 +23,7 @@ export function mountOverlay(root: HTMLElement) {
         <p class="tagline">${escapeHtml(siteConfig.copy.tagline)}</p>
         <p class="lede">${formatLedeHtml(siteConfig.copy.lede)}</p>
       </div>
-      <div class="panel-section highlights-panel">
-        <div class="highlight-cards" role="list">${renderHighlightCards()}</div>
-      </div>
+      ${renderHighlightsSection()}
       <div class="panel-section waitlist" aria-labelledby="waitlist-title">
         <h2 id="waitlist-title" class="subsection-title">${escapeHtml(siteConfig.copy.waitlistTitle)}</h2>
         <form id="waitlist-form" class="waitlist-form" novalidate>
@@ -73,6 +71,21 @@ function renderHighlightCards(): string {
       (c) =>
         `<article class="highlight-card" role="listitem"><div class="highlight-card-icon-wrap" aria-hidden="true">${highlightIconSvg(c.icon)}</div><div class="highlight-card-main"><h3 class="highlight-card-title">${escapeHtml(c.title)}</h3><div class="highlight-card-body">${formatHighlightBody(c.body)}</div></div></article>`,
     )
+    .join('');
+}
+
+function renderHighlightsSection(): string {
+  const content =
+    siteConfig.copy.highlightLayout === 'bullets'
+      ? `<ul class="bullet-list">${renderHighlightBullets()}</ul>`
+      : `<div class="highlight-cards" role="list">${renderHighlightCards()}</div>`;
+
+  return `<div class="panel-section highlights-panel">${content}</div>`;
+}
+
+function renderHighlightBullets(): string {
+  return siteConfig.copy.highlightCards
+    .map((c) => `<li>${formatHighlightBody(c.body)}</li>`)
     .join('');
 }
 

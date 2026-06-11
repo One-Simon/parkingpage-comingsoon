@@ -58,9 +58,13 @@ function brandHtmlPlugin(): Plugin {
     name: 'inject-brand-html',
     transformIndexHtml(html) {
       const faviconTags = [
-        `<link rel="icon" type="image/svg+xml" href="${escapeHtmlAttribute(siteConfig.assets.faviconSvg)}">`,
+        siteConfig.assets.faviconSvg
+          ? `<link rel="icon" type="image/svg+xml" href="${escapeHtmlAttribute(siteConfig.assets.faviconSvg)}">`
+          : '',
         `<link rel="alternate icon" type="image/png" href="${escapeHtmlAttribute(siteConfig.assets.faviconPng)}">`,
-      ].join('\n    ');
+      ]
+        .filter(Boolean)
+        .join('\n    ');
 
       return html
         .replace(
